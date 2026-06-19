@@ -1,0 +1,445 @@
+[
+  {
+    "type": "bug_fix",
+    "symptoms": ["page returns 404 after deployment", "dynamic routes not working in production"],
+    "root_cause": "Dynamic routes not configured correctly or missing generateStaticParams for static export",
+    "fix": [
+      "Ensure dynamic route files use correct bracket notation: [slug]/page.tsx",
+      "Add generateStaticParams() for statically generated dynamic routes",
+      "Check next.config.js for incorrect rewrites or redirects"
+    ],
+    "tags": ["routing", "deployment", "dynamic-routes", "vercel"]
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": ["API route returns 500 in production", "API works locally but fails on Vercel"],
+    "root_cause": "Edge runtime incompatibility or missing environment variables in Vercel",
+    "fix": [
+      "Check Vercel dashboard for environment variables - ensure they are set for the correct environment (Production/Preview/Development)",
+      "Verify API route is not using Node.js-only APIs with edge runtime",
+      "Remove 'export const runtime = \"edge\"' if using Node.js specific modules"
+    ],
+    "tags": ["api-routes", "environment-variables", "edge-runtime", "vercel"]
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": ["hydration mismatch error", "text content does not match server-rendered HTML", "Hydration failed"],
+    "root_cause": "Component renders different content on server vs client, often due to browser-only APIs or date/time formatting",
+    "fix": [
+      "Wrap browser-only code in useEffect or use dynamic import with { ssr: false }",
+      "Use suppressHydrationWarning for intentional mismatches like timestamps",
+      "Ensure consistent date formatting using UTC or a library like date-fns",
+      "Check for extensions or injected scripts that modify DOM"
+    ],
+    "tags": ["hydration", "ssr", "client-components", "react"]
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": ["images not loading in production", "next/image returns 400", "unoptimized images"],
+    "root_cause": "Image domain not configured in next.config.js or loader misconfiguration",
+    "fix": [
+      "Add remote image domains to next.config.js under images.remotePatterns",
+      "Example: images: { remotePatterns: [{ protocol: 'https', hostname: 'example.com' }] }",
+      "For external CDN, configure a custom loader or use unoptimized prop"
+    ],
+    "tags": ["next-image", "images", "configuration", "vercel"]
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": ["middleware not executing", "middleware runs on wrong paths", "redirect loop from middleware"],
+    "root_cause": "Middleware matcher misconfigured or infinite redirect loop due to missing path exclusions",
+    "fix": [
+      "Check middleware.ts matcher config to ensure correct path patterns",
+      "Exclude API routes and static files: matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)']",
+      "Add condition to skip redirect if already on target path"
+    ],
+    "tags": ["middleware", "routing", "authentication", "redirect"]
+  },
+  {
+    "type": "error",
+    "symptoms": ["FUNCTION_INVOCATION_TIMEOUT", "task timed out after 10 seconds"],
+    "root_cause": "Serverless function exceeds Vercel's default 10s timeout on Hobby plan (60s on Pro)",
+    "fix": [
+      "Optimize database queries and add connection pooling",
+      "Increase maxDuration in route config: export const maxDuration = 30",
+      "Move long-running tasks to background jobs using Vercel Cron or a queue",
+      "Upgrade to Pro plan for up to 300s timeout"
+    ],
+    "tags": ["timeout", "serverless", "performance", "vercel"]
+  },
+  {
+    "type": "error",
+    "symptoms": ["EDGE_FUNCTION_INVOCATION_FAILED", "edge function crashed"],
+    "root_cause": "Edge function using unsupported Node.js APIs or exceeding memory/size limits",
+    "fix": [
+      "Remove Node.js-specific imports (fs, path, crypto with certain methods)",
+      "Switch to Node.js runtime: export const runtime = 'nodejs'",
+      "Reduce bundle size - edge functions have a 1MB limit after compression",
+      "Use edge-compatible alternatives: crypto.subtle instead of crypto"
+    ],
+    "tags": ["edge-runtime", "serverless", "vercel", "compatibility"]
+  },
+  {
+    "type": "error",
+    "symptoms": ["Module not found: Can't resolve 'fs'", "Module not found: Can't resolve 'net'"],
+    "root_cause": "Server-only module imported in client component or edge runtime",
+    "fix": [
+      "Add 'use server' directive or move import to server component",
+      "Use next/dynamic with ssr: false for client-only imports",
+      "Add 'server-only' package to prevent accidental client imports: import 'server-only'",
+      "Check that server utilities aren't re-exported from barrel files used by client components"
+    ],
+    "tags": ["module-resolution", "server-components", "client-components", "bundling"]
+  },
+  {
+    "type": "error",
+    "symptoms": ["TypeError: fetch failed", "ECONNREFUSED in API route", "network error in serverless function"],
+    "root_cause": "Serverless function cannot reach external service or is using localhost URL in production",
+    "fix": [
+      "Replace localhost URLs with production URLs using environment variables",
+      "Use NEXT_PUBLIC_ prefix only for client-side env vars; use server-side env vars in API routes",
+      "Ensure external service allows connections from Vercel IP ranges",
+      "Add proper error handling and retry logic for transient network failures"
+    ],
+    "tags": ["networking", "api-routes", "environment-variables", "serverless"]
+  },
+  {
+    "type": "log_pattern",
+    "symptoms": ["[next-auth][error] CLIENT_FETCH_ERROR", "NEXTAUTH_URL not set"],
+    "root_cause": "NextAuth.js not configured with correct NEXTAUTH_URL for Vercel deployment",
+    "fix": [
+      "Set NEXTAUTH_URL to your production domain in Vercel environment variables",
+      "Set NEXTAUTH_SECRET using: openssl rand -base64 32",
+      "For Vercel, NEXTAUTH_URL can be omitted if using VERCEL_URL (auto-set by Vercel)",
+      "Ensure callback URLs in OAuth provider match the production domain"
+    ],
+    "tags": ["next-auth", "authentication", "environment-variables", "vercel"]
+  },
+  {
+    "type": "log_pattern",
+    "symptoms": ["Warning: Each child in a list should have a unique key prop", "key prop warning in console"],
+    "root_cause": "React list items missing unique key prop or using array index as key with dynamic lists",
+    "fix": [
+      "Add unique key prop to each element in map(): items.map(item => <div key={item.id}>)",
+      "Use stable unique identifiers, not array indices, for dynamic lists",
+      "If no unique ID exists, generate one at data creation time, not render time"
+    ],
+    "tags": ["react", "performance", "rendering", "warnings"]
+  },
+  {
+    "type": "log_pattern",
+    "symptoms": ["Warning: Cannot update a component while rendering a different component", "setState during render"],
+    "root_cause": "State update triggered during render phase instead of in effect or event handler",
+    "fix": [
+      "Move state updates into useEffect() or event handlers",
+      "Use useCallback for memoized event handlers that trigger state updates",
+      "If derived state is needed, compute it during render without setState"
+    ],
+    "tags": ["react", "state-management", "hooks", "rendering"]
+  },
+  {
+    "type": "config_issue",
+    "symptoms": ["build fails on Vercel", "works locally but not in CI", "dependency installation fails"],
+    "root_cause": "Node.js version mismatch or missing build configuration",
+    "fix": [
+      "Set Node.js version in package.json engines field or Vercel project settings",
+      "Add .nvmrc file with target version (e.g., 18.17.0)",
+      "Check that all dependencies are in dependencies, not just devDependencies if needed at runtime",
+      "Set installCommand or buildCommand in vercel.json if using monorepo"
+    ],
+    "tags": ["build", "deployment", "node-version", "vercel", "configuration"]
+  },
+  {
+    "type": "config_issue",
+    "symptoms": ["CORS error in browser", "blocked by CORS policy", "preflight request fails"],
+    "root_cause": "API routes missing CORS headers for cross-origin requests",
+    "fix": [
+      "Add CORS headers in API route or middleware",
+      "In route handler: return new Response(body, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS' } })",
+      "Handle OPTIONS preflight: if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders })",
+      "Use vercel.json headers config for static assets"
+    ],
+    "tags": ["cors", "api-routes", "headers", "security"]
+  },
+  {
+    "type": "config_issue",
+    "symptoms": ["environment variables undefined", "process.env returns undefined in browser", "env vars missing client-side"],
+    "root_cause": "Client-side env vars missing NEXT_PUBLIC_ prefix or not included at build time",
+    "fix": [
+      "Prefix client-side variables with NEXT_PUBLIC_: NEXT_PUBLIC_API_URL",
+      "Server-side only vars (API keys, secrets) should NOT have NEXT_PUBLIC_ prefix",
+      "Redeploy after adding env vars - they are baked in at build time for client",
+      "Use Vercel CLI: vercel env pull .env.local to sync environment variables"
+    ],
+    "tags": ["environment-variables", "configuration", "security", "vercel"]
+  },
+  {
+    "type": "config_issue",
+    "symptoms": ["caching not working", "stale data after redeployment", "ISR not revalidating"],
+    "root_cause": "Incorrect revalidation configuration or cache headers misconfigured",
+    "fix": [
+      "Set revalidate in fetch options: fetch(url, { next: { revalidate: 60 } })",
+      "Use revalidatePath() or revalidateTag() in Server Actions for on-demand revalidation",
+      "For App Router: export const revalidate = 60 in page/layout",
+      "Check Vercel dashboard Data Cache section for cache hit/miss metrics"
+    ],
+    "tags": ["caching", "isr", "revalidation", "data-fetching", "vercel"]
+  },
+  {
+    "type": "doc",
+    "symptoms": ["how to setup database connection", "database connection pooling on serverless"],
+    "root_cause": "Serverless environments create new connections per invocation without pooling",
+    "fix": [
+      "Use connection pooling: PgBouncer for PostgreSQL, Prisma Data Proxy, or Vercel Postgres",
+      "For Prisma: use @prisma/client with connection pooling URL (port 6543 for Supabase)",
+      "Cache PrismaClient instance: globalThis.prisma = globalThis.prisma || new PrismaClient()",
+      "Consider Vercel KV (Redis) or Vercel Postgres for Vercel-native options"
+    ],
+    "tags": ["database", "connection-pooling", "prisma", "serverless", "vercel"]
+  },
+  {
+    "type": "doc",
+    "symptoms": ["how to handle file uploads", "file upload on Vercel", "body size limit exceeded"],
+    "root_cause": "Vercel serverless functions have a 4.5MB body size limit on request payload",
+    "fix": [
+      "Use presigned URLs to upload directly to S3/Cloudflare R2 from the client",
+      "Configure API route body parser: export const config = { api: { bodyParser: { sizeLimit: '4mb' } } }",
+      "For App Router: export const maxDuration and use streaming",
+      "Use Vercel Blob Storage for simple file upload needs"
+    ],
+    "tags": ["file-upload", "blob-storage", "s3", "serverless-limits", "vercel"]
+  },
+  {
+    "type": "doc",
+    "symptoms": ["how to implement authentication", "protect routes in Next.js"],
+    "root_cause": "Need to implement route protection with proper session management",
+    "fix": [
+      "Use NextAuth.js (Auth.js) or Clerk for managed authentication",
+      "Protect server components: const session = await getServerSession(authOptions)",
+      "Protect API routes: check session at start of handler",
+      "Use middleware.ts for route-level protection before page loads",
+      "Store session tokens in httpOnly cookies, not localStorage"
+    ],
+    "tags": ["authentication", "next-auth", "middleware", "security", "session"]
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": ["how to fetch data in server component", "data fetching best practices"],
+    "root_cause": "Need to implement efficient data fetching with proper caching and error handling",
+    "fix": [
+      "Fetch in Server Components directly: async function Page() { const data = await fetch(url) }",
+      "Use React cache() for request deduplication across components",
+      "Implement loading.tsx and error.tsx for Suspense boundaries",
+      "Use parallel data fetching with Promise.all() for independent requests",
+      "Set appropriate revalidation: fetch(url, { next: { revalidate: 3600, tags: ['posts'] } })"
+    ],
+    "tags": ["data-fetching", "server-components", "caching", "react", "app-router"]
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": ["how to use server actions", "form submission in Next.js App Router"],
+    "root_cause": "Need to implement mutations/form handling with Server Actions",
+    "fix": [
+      "Define server action with 'use server' directive at top of function or file",
+      "Use in form: <form action={serverAction}>",
+      "For programmatic use: call server action from client with useTransition",
+      "Revalidate data after mutation: revalidatePath('/path') or revalidateTag('tag')",
+      "Return typed responses: use zod for validation, return { error } or { success } objects"
+    ],
+    "tags": ["server-actions", "forms", "mutations", "app-router", "validation"]
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": ["how to handle errors globally", "error boundary setup", "unhandled errors in production"],
+    "root_cause": "Need comprehensive error handling for both server and client errors",
+    "fix": [
+      "Create app/error.tsx (client component) for route segment error boundaries",
+      "Create app/global-error.tsx for root layout errors",
+      "Create app/not-found.tsx for 404 pages",
+      "Use try/catch in Server Actions and return error state to client",
+      "Integrate error reporting: Sentry, LogRocket, or Vercel Web Analytics"
+    ],
+    "tags": ["error-handling", "error-boundary", "monitoring", "app-router"]
+  },
+  {
+    "type": "fix_snippet",
+    "symptoms": ["implement rate limiting on API routes", "too many requests", "API abuse prevention"],
+    "root_cause": "API routes need rate limiting to prevent abuse in production",
+    "fix": [
+      "Use Vercel KV (Redis) for distributed rate limiting",
+      "Install @upstash/ratelimit: npm install @upstash/ratelimit @upstash/redis",
+      "Code: const ratelimit = new Ratelimit({ redis: Redis.fromEnv(), limiter: Ratelimit.slidingWindow(10, '10s') })",
+      "In handler: const { success } = await ratelimit.limit(identifier); if (!success) return Response.json({ error: 'Too many requests' }, { status: 429 })",
+      "Use IP from headers: request.headers.get('x-forwarded-for') ?? '127.0.0.1'"
+    ],
+    "tags": ["rate-limiting", "security", "redis", "upstash", "api-routes"]
+  },
+  {
+    "type": "fix_snippet",
+    "symptoms": ["implement cron job on Vercel", "scheduled tasks", "periodic background jobs"],
+    "root_cause": "Need to run periodic tasks in serverless environment",
+    "fix": [
+      "Create API route: app/api/cron/route.ts",
+      "Add to vercel.json: { \"crons\": [{ \"path\": \"/api/cron\", \"schedule\": \"0 */6 * * *\" }] }",
+      "Verify request is from Vercel Cron: if (req.headers.get('Authorization') !== `Bearer ${process.env.CRON_SECRET}`) return Response.json({}, { status: 401 })",
+      "Set CRON_SECRET env var in Vercel dashboard",
+      "Pro plan required for cron intervals less than once per day"
+    ],
+    "tags": ["cron", "background-jobs", "scheduling", "vercel", "api-routes"]
+  },
+  {
+    "type": "fix_snippet",
+    "symptoms": ["implement ISR on-demand revalidation", "webhook revalidation", "CMS content update trigger"],
+    "root_cause": "Need to revalidate cached pages when CMS content changes",
+    "fix": [
+      "Create revalidation API route: app/api/revalidate/route.ts",
+      "Use revalidateTag: import { revalidateTag } from 'next/cache'; revalidateTag('blog-posts');",
+      "Or revalidatePath: import { revalidatePath } from 'next/cache'; revalidatePath('/blog');",
+      "Secure endpoint with secret: if (req.headers.get('x-webhook-secret') !== process.env.REVALIDATION_SECRET) return Response.json({ message: 'Invalid secret' }, { status: 401 })",
+      "Configure CMS webhook to hit /api/revalidate on content publish"
+    ],
+    "tags": ["isr", "revalidation", "caching", "cms", "webhooks"]
+  },
+  {
+    "type": "diagnostic_step",
+    "symptoms": ["slow page load", "high TTFB", "poor Core Web Vitals"],
+    "root_cause": "Multiple potential causes for performance degradation",
+    "fix": [
+      "Check Vercel Analytics and Speed Insights for real user metrics",
+      "Run Lighthouse audit and check LCP, FID/INP, CLS scores",
+      "Identify blocking resources: check if large JS bundles are loaded unnecessarily",
+      "Use next/dynamic for code splitting heavy components",
+      "Check for waterfall requests: use parallel fetching or preload patterns",
+      "Verify images use next/image with proper sizes and priority props",
+      "Check if using 'use client' unnecessarily on large component trees"
+    ],
+    "tags": ["performance", "core-web-vitals", "lighthouse", "optimization"]
+  },
+  {
+    "type": "diagnostic_step",
+    "symptoms": ["deployment fails", "build error on Vercel", "build succeeds locally but fails in CI"],
+    "root_cause": "Environment differences between local and Vercel build environment",
+    "fix": [
+      "Check Vercel build logs in deployment details for exact error",
+      "Compare Node.js versions: local vs Vercel (set in project settings)",
+      "Run 'next build' locally with same env vars to reproduce",
+      "Check for case-sensitive import paths (Vercel runs Linux, may differ from macOS)",
+      "Verify all env vars needed at build time are set in Vercel",
+      "Check for missing dependencies: move from devDependencies if needed at build",
+      "Clear .next folder and node_modules, then rebuild: rm -rf .next node_modules && npm install && npm run build"
+    ],
+    "tags": ["build", "deployment", "debugging", "vercel", "ci-cd"]
+  },
+  {
+    "type": "diagnostic_step",
+    "symptoms": ["memory leak in production", "function memory usage high", "OOM errors"],
+    "root_cause": "Memory leak in serverless function or improper resource cleanup",
+    "fix": [
+      "Check Vercel Function logs for memory usage patterns",
+      "Ensure database connections are properly closed or pooled",
+      "Avoid storing large objects in module-level variables (persists across warm invocations)",
+      "Profile locally with --inspect flag: node --inspect node_modules/.bin/next dev",
+      "Check for event listener leaks: always remove listeners in useEffect cleanup",
+      "Use streaming for large responses instead of buffering entire payload"
+    ],
+    "tags": ["memory", "serverless", "debugging", "performance", "vercel"]
+  },
+  {
+    "type": "root_cause",
+    "symptoms": ["flash of unstyled content", "FOUC", "CSS not loading initially", "layout shift on load"],
+    "root_cause": "CSS-in-JS library not configured for server-side rendering or font loading not optimized",
+    "fix": [
+      "For Tailwind: ensure globals.css is imported in root layout.tsx",
+      "For CSS-in-JS (styled-components): configure compiler in next.config.js: compiler: { styledComponents: true }",
+      "Use next/font for optimized font loading: import { Inter } from 'next/font/google'",
+      "Add font-display: swap for custom fonts",
+      "Preload critical CSS with <link rel='preload'>"
+    ],
+    "tags": ["css", "fonts", "fouc", "styling", "ssr"]
+  },
+  {
+    "type": "root_cause",
+    "symptoms": ["cookies not working", "session lost after redirect", "authentication state lost"],
+    "root_cause": "Cookie configuration incompatible with Vercel deployment domain or SameSite policy",
+    "fix": [
+      "Set cookie domain to match production domain (omit for current domain only)",
+      "Use SameSite: 'lax' for most cases, 'none' requires Secure flag",
+      "Ensure cookies are set with Secure: true in production (HTTPS)",
+      "For cross-subdomain auth: set domain to '.yourdomain.com'",
+      "Check that cookie path is '/' for site-wide access",
+      "Verify cookie is not being blocked by browser privacy settings"
+    ],
+    "tags": ["cookies", "authentication", "session", "security", "deployment"]
+  },
+  {
+    "type": "root_cause",
+    "symptoms": ["infinite re-renders", "maximum update depth exceeded", "component keeps re-rendering"],
+    "root_cause": "useEffect dependency array causes infinite loop or object/array reference changes on every render",
+    "fix": [
+      "Check useEffect dependencies: avoid objects/arrays that create new references each render",
+      "Memoize objects with useMemo and functions with useCallback",
+      "Move static objects outside component or use useRef for stable references",
+      "Split useEffect into multiple focused effects with minimal dependencies",
+      "Use primitive values in dependency arrays when possible"
+    ],
+    "tags": ["react", "hooks", "useEffect", "performance", "rendering"]
+  },
+  {
+    "type": "performance_case",
+    "symptoms": ["large bundle size", "slow initial page load", "high JavaScript payload"],
+    "root_cause": "Unoptimized bundle with unnecessary client-side JavaScript",
+    "fix": [
+      "Analyze bundle: npm install @next/bundle-analyzer && add to next.config.js",
+      "Use dynamic imports for heavy components: const Heavy = dynamic(() => import('./Heavy'), { ssr: false })",
+      "Keep components as Server Components by default; only add 'use client' when needed",
+      "Tree-shake large libraries: import { specific } from 'library' instead of import library",
+      "Use next/script with strategy='lazyOnload' for third-party scripts",
+      "Enable gzip/brotli compression (Vercel handles this automatically)"
+    ],
+    "tags": ["bundle-size", "code-splitting", "performance", "optimization", "tree-shaking"]
+  },
+  {
+    "type": "performance_case",
+    "symptoms": ["slow database queries", "API response time high", "data fetching bottleneck"],
+    "root_cause": "Unoptimized database access pattern in serverless environment",
+    "fix": [
+      "Enable connection pooling (PgBouncer, Prisma Accelerate, or Vercel Postgres)",
+      "Add database indexes for frequently queried columns",
+      "Implement pagination instead of fetching all records",
+      "Use select to fetch only needed fields: prisma.user.findMany({ select: { id: true, name: true } })",
+      "Cache frequent queries with unstable_cache or React cache()",
+      "Place database in same region as Vercel serverless functions (check in Vercel dashboard)",
+      "Use Vercel Edge Config for frequently read, rarely written configuration data"
+    ],
+    "tags": ["database", "performance", "queries", "caching", "serverless"]
+  },
+  {
+    "type": "performance_case",
+    "symptoms": ["slow image loading", "large cumulative layout shift", "images cause poor LCP"],
+    "root_cause": "Images not optimized or missing proper sizing configuration",
+    "fix": [
+      "Use next/image component for automatic optimization",
+      "Add priority prop to LCP image: <Image priority src={...} />",
+      "Always specify width and height or use fill with sizes prop",
+      "Use sizes prop for responsive images: sizes='(max-width: 768px) 100vw, 50vw'",
+      "Serve modern formats (WebP/AVIF) - next/image handles this automatically",
+      "Use placeholder='blur' with blurDataURL for perceived performance",
+      "Configure remote patterns for external image sources in next.config.js"
+    ],
+    "tags": ["images", "performance", "core-web-vitals", "lcp", "next-image"]
+  },
+  {
+    "type": "performance_case",
+    "symptoms": ["cold start latency", "first request slow", "serverless function slow to start"],
+    "root_cause": "Large serverless function bundle size or heavy initialization code",
+    "fix": [
+      "Minimize function bundle: avoid importing entire libraries when only using one function",
+      "Use edge runtime for latency-sensitive routes: export const runtime = 'edge'",
+      "Reduce dependency count in API routes",
+      "Pre-warm functions with Vercel Cron hitting critical paths",
+      "Choose function region closest to your users in vercel.json: { \"regions\": [\"iad1\"] }",
+      "Split large API routes into smaller, focused route handlers"
+    ],
+    "tags": ["cold-start", "serverless", "latency", "edge-runtime", "performance", "vercel"]
+  }
+]
