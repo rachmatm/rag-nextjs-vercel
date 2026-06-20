@@ -4,3 +4,9 @@ node_modules/
 .env.production
 uploads/
 *.db
+
+# Next.js
+.next/
+next-env.d.ts
+.vercel
+*.tsbuildinfo

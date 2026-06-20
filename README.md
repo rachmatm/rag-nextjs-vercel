@@ -2,6 +2,131 @@
 
 A structured JSON knowledge base designed for Retrieval-Augmented Generation (RAG) systems, covering common issues, patterns, and solutions for **Next.js applications hosted on Vercel**.
 
+It ships with two ways to consume the data:
+
+1. **MCP Server** (`app/`) — a [Model Context Protocol](https://modelcontextprotocol.io) server deployed as a Vercel serverless function, so any coding agent (Cursor, Claude Code, Windsurf, Cline, VS Code, …) can query the knowledge base over Streamable HTTP.
+2. **Raw JSON** (`knowledge-base.json`) — the underlying dataset, plus `export-to-neon.mjs` to load it into Neon Postgres with `pgvector`.
+
+---
+
+## MCP Server
+
+The MCP server exposes the knowledge base (stored in Neon Postgres) through four tools. It is a Next.js App Router route at `app/api/[transport]/route.ts`, served at **`/api/mcp`** using the Streamable HTTP transport.
+
+### Tools
+
+| Tool | Input | Returns |
+|------|-------|---------|
+| `search_knowledge_base` | `query` (required), `type?`, `severity?`, `tags?`, `stack?`, `limit?` | Ranked matching entries with `root_cause` + `fix` steps |
+| `get_knowledge_entry` | `id` | One full entry |
+| `find_similar_entries` | `id`, `limit?` | Entries sharing tags with the given entry |
+| `list_knowledge_filters` | `stack?` | Valid filter values (types, severities, frequencies, stacks, top tags) + counts |
+
+### Input / Output contract
+
+**Input** — every tool takes a small, typed (Zod) argument set. The primary tool only requires a natural-language `query`; all filters are optional and self-describing, so an agent can call it with zero prior knowledge of the dataset:
+
+```json
+{ "name": "search_knowledge_base", "arguments": { "query": "prisma connection pool exhausted on vercel", "limit": 3 } }
+```
+
+**Output** — results are returned **both** as a JSON text block (consumed by every MCP client today) and as `structuredContent` (for clients that support typed output). Each result is a stable, flat object:
+
+```json
+{
+  "query": "prisma connection pool exhausted on vercel",
+  "filters": { "type": null, "severity": null, "tags": null, "stack": "nextjs-vercel" },
+  "count": 1,
+  "results": [
+    {
+      "id": 123,
+      "type": "bug_fix",
+      "symptoms": ["..."],
+      "root_cause": "...",
+      "fix": ["...", "..."],
+      "tags": ["prisma", "database", "serverless"],
+      "severity": "high",
+      "frequency": "common",
+      "related_docs": ["https://..."],
+      "version": "prisma@5+",
+      "stack": "nextjs-vercel",
+      "score": 0.8123
+    }
+  ]
+}
+```
+
+This shape is intentionally agent-friendly: top-level `count`/`results`, one object per entry, `fix` as an ordered array of steps, and a `score` for ranking. Errors are returned as `{ "error": "..." }` with `isError: true` rather than throwing.
+
+### Run locally
+
+```bash
+npm install
+cp .env.example .env.local   # then set DATABASE_URL
+npm run dev                  # http://localhost:3000/api/mcp
+```
+
+Inspect it with the official MCP Inspector:
+
+```bash
+npx @modelcontextprotocol/inspector
+# Transport: Streamable HTTP  ·  URL: http://localhost:3000/api/mcp
+```
+
+### Deploy to Vercel
+
+1. Import the repo into Vercel.
+2. Add the `DATABASE_URL` environment variable (Neon pooled connection string).
+3. (Optional) Add `MCP_API_KEY` to require a bearer token.
+4. Deploy. The region is pinned to `sin1` (Singapore) in `vercel.json` to sit next to the Neon `ap-southeast-1` database.
+
+### Connect a client
+
+```json
+{
+  "mcpServers": {
+    "rag-nextjs-vercel": {
+      "url": "https://<your-deployment>.vercel.app/api/mcp"
+    }
+  }
+}
+```
+
+If `MCP_API_KEY` is set, add a header (client config varies):
+
+```json
+{
+  "mcpServers": {
+    "rag-nextjs-vercel": {
+      "url": "https://<your-deployment>.vercel.app/api/mcp",
+      "headers": { "Authorization": "Bearer <your-key>" }
+    }
+  }
+}
+```
+
+For stdio-only clients, bridge with [`mcp-remote`](https://www.npmjs.com/package/mcp-remote):
+
+```json
+{
+  "mcpServers": {
+    "rag-nextjs-vercel": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "https://<your-deployment>.vercel.app/api/mcp"]
+    }
+  }
+}
+```
+
+### Environment variables
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `DATABASE_URL` | yes | Neon Postgres pooled connection string |
+| `MCP_API_KEY` | no | If set, clients must send it via `Authorization: Bearer` or `x-api-key` |
+
+---
+
 ## Schema
 
 Each entry follows this structure:
