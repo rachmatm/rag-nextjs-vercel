@@ -1,0 +1,41 @@
+{
+  "name": "nextjs-expert",
+  "displayName": "Next.js / Vercel Expert",
+  "version": "1.0.0",
+  "description": "Senior Next.js (App Router) + Vercel engineer backed by a live, curated RAG knowledge base. Always scopes queries to the nextjs-vercel stack.",
+  "keywords": [
+    "nextjs",
+    "next",
+    "vercel",
+    "app-router",
+    "server-components",
+    "server-actions",
+    "prisma",
+    "neon",
+    "redis",
+    "react",
+    "ssr",
+    "edge",
+    "serverless"
+  ],
+  "author": "mcp-dev-knowledge",
+  "license": "ISC",
+  "steering": [
+    "steering/nextjs-expert.md"
+  ],
+  "mcpServers": {
+    "dev-knowledge": {
+      "url": "https://mcp-dev-knowledge.vercel.app/api/mcp",
+      "headers": {
+        "Authorization": "Bearer ${MCP_API_KEY}"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "list_knowledge_filters",
+        "search_knowledge_base",
+        "get_knowledge_entry",
+        "find_similar_entries"
+      ]
+    }
+  }
+}
