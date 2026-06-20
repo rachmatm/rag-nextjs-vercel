@@ -12,11 +12,11 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const STACK_DESCRIPTION =
-  "Which tech stack to scope this query to. Stacks are STRICTLY ISOLATED — a query " +
-  "returns entries from exactly one stack and never mixes them. " +
+  "REQUIRED. Which tech stack to scope this query to. Stacks are STRICTLY ISOLATED — a query " +
+  "returns entries from exactly one stack and never mixes them, so you MUST choose one. " +
   "Valid values: 'nextjs-vercel' (Next.js App Router + Vercel) and 'react-native' " +
-  "(React Native for web/Android/iOS). Set this to match the project you are working on. " +
-  "Defaults to 'nextjs-vercel'. Call list_knowledge_filters to see all available stacks.";
+  "(React Native for web/Android/iOS). Set it to match the project you are working on. " +
+  "If unsure which stacks exist, call list_knowledge_filters (without a stack) FIRST to list them.";
 
 /**
  * Return a tool result as both a readable JSON text block (consumed by every MCP
@@ -67,7 +67,8 @@ const handler = createMcpHandler(
           "problems, best practices, code patterns and performance cases. " +
           "Two ISOLATED stacks are available: 'nextjs-vercel' (Next.js App Router + Vercel) and " +
           "'react-native' (React Native for web/Android/iOS). A query returns results from exactly " +
-          "one stack — set the `stack` argument to match your project (defaults to 'nextjs-vercel'). " +
+          "one stack — the `stack` argument is REQUIRED, so set it to match your project. If you do " +
+          "not know which stacks exist, call list_knowledge_filters first. " +
           "Use this BEFORE attempting a fix when you hit an error, a confusing log, a config question, " +
           "or want a vetted pattern. Returns ranked entries, each with root_cause and concrete fix steps.",
         inputSchema: {
@@ -98,7 +99,7 @@ const handler = createMcpHandler(
             .describe(
               "Optional. Return only entries containing at least one of these tags, e.g. ['redis','rate-limiting']."
             ),
-          stack: z.string().optional().describe(STACK_DESCRIPTION),
+          stack: z.string().min(1).describe(STACK_DESCRIPTION),
           limit: z
             .number()
             .int()
@@ -113,7 +114,7 @@ const handler = createMcpHandler(
           const rows = await searchKnowledge({ query, type, severity, tags, stack, limit });
           return jsonResult({
             query,
-            filters: { type: type ?? null, severity: severity ?? null, tags: tags ?? null, stack: stack ?? "nextjs-vercel" },
+            filters: { type: type ?? null, severity: severity ?? null, tags: tags ?? null, stack },
             count: rows.length,
             results: rows.map(shapeEntry),
           });
@@ -190,7 +191,14 @@ const handler = createMcpHandler(
           "exist); pass a `stack` to see the filters available within that one stack. " +
           "Call this first if you are unsure which stack or filters to pass to search_knowledge_base.",
         inputSchema: {
-          stack: z.string().optional().describe(STACK_DESCRIPTION),
+          stack: z
+            .string()
+            .optional()
+            .describe(
+              "Optional here. Omit to list ALL stacks and their entry counts (use this to discover " +
+                "which stacks exist before searching). Pass a stack (e.g. 'nextjs-vercel' or " +
+                "'react-native') to see the filter values available within just that stack."
+            ),
         },
       },
       async ({ stack }) => {
@@ -215,7 +223,7 @@ const handler = createMcpHandler(
       "work are kept separate — a search returns results from exactly one stack and never mixes them. " +
       "Workflow: determine the project's stack first (call list_knowledge_filters to see available " +
       "stacks), then call search_knowledge_base with the error text or a short description AND the " +
-      "matching `stack` (defaults to 'nextjs-vercel'). Use get_knowledge_entry to expand a result and " +
+      "matching `stack` — the `stack` argument is REQUIRED. Use get_knowledge_entry to expand a result and " +
       "find_similar_entries (same-stack only) to explore related solutions.",
   },
   {

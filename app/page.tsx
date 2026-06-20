@@ -11,7 +11,7 @@ const TOOLS: { name: string; desc: string; params: string }[] = [
   {
     name: "search_knowledge_base",
     desc: "Full-text search with an ILIKE fallback. Returns ranked entries, each with root_cause and concrete fix steps.",
-    params: "query (required), type?, severity?, tags?, stack?, limit?",
+    params: "query (required), stack (required), type?, severity?, tags?, limit?",
   },
   {
     name: "get_knowledge_entry",
@@ -166,12 +166,13 @@ export default async function Home() {
         Dev Knowledge — MCP Server
       </h1>
       <p style={{ color: "#9a9aa5", lineHeight: 1.65, marginTop: 0, fontSize: 15 }}>
-        A Model Context Protocol server that gives any coding agent instant, structured access to a
-        curated, multi-stack knowledge base of developer issues, errors, config problems, best
-        practices and code patterns. Each tech stack is <strong style={{ color: "#cfcfd6" }}>kept
-        strictly separate</strong> — a query returns results from exactly one stack and never mixes
-        them. Backed by Neon Postgres and served from a Vercel serverless function in{" "}
-        <code>sin1</code>.
+        A Model Context Protocol server serving <strong style={{ color: "#cfcfd6" }}>multi-stack
+        developer knowledge</strong> to any coding agent. Each tech stack is a separate, isolated
+        knowledge base — one of them is a knowledge base of <strong style={{ color: "#cfcfd6" }}>
+        Next.js (App Router) and Vercel</strong> issues, errors, config problems, best practices
+        and code patterns. Because the stacks never mix, you must <strong style={{ color: "#cfcfd6" }}>
+        choose a stack first</strong> (the <code>stack</code> argument is required when searching).
+        Backed by Neon Postgres and served from a Vercel serverless function in <code>sin1</code>.
       </p>
 
       {/* Live stats */}
@@ -203,10 +204,12 @@ export default async function Home() {
       ) : null}
 
       {/* Stacks — strictly isolated knowledge domains */}
-      <h2 style={{ fontSize: 19, marginTop: 40 }}>Stacks (isolated)</h2>
+      <h2 style={{ fontSize: 19, marginTop: 40 }}>Available stacks — pick one (required)</h2>
       <p style={{ color: "#9a9aa5", fontSize: 14, marginTop: 4 }}>
-        Knowledge is partitioned by stack. Pass the <code>stack</code> argument to{" "}
-        <code>search_knowledge_base</code> to scope results; they never cross stack boundaries.
+        Knowledge is partitioned by stack and never crosses boundaries, so{" "}
+        <code>search_knowledge_base</code> <strong style={{ color: "#cfcfd6" }}>requires</strong> a{" "}
+        <code>stack</code> argument. Call <code>list_knowledge_filters</code> (no stack) to discover
+        what exists, then pass one of the values below.
       </p>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
         {(online ? stats!.stacks : []).map((s) => {
@@ -264,8 +267,9 @@ export default async function Home() {
       {/* Example */}
       <h2 style={{ fontSize: 19, marginTop: 40 }}>Example</h2>
       <p style={{ color: "#9a9aa5", fontSize: 14, marginTop: 4 }}>
-        Tool arguments are typed; only <code>query</code> is required. Results come back as a JSON
-        text block <em>and</em> as <code>structuredContent</code>, with errors returned as{" "}
+        Tool arguments are typed; <code>search_knowledge_base</code> requires both{" "}
+        <code>query</code> and <code>stack</code>. Results come back as a JSON text block{" "}
+        <em>and</em> as <code>structuredContent</code>, with errors returned as{" "}
         <code>{`{ "error": ... }`}</code> (never thrown).
       </p>
       <CodeBlock label="request" code={EXAMPLE_CALL} />
@@ -274,7 +278,7 @@ export default async function Home() {
       <p style={{ color: "#6c6c78", fontSize: 13, marginTop: 40 }}>
         This page is informational. The protocol is served from{" "}
         <code style={{ fontFamily: mono }}>/api/mcp</code> · source on{" "}
-        <a href="https://github.com/rachmatm/rag-nextjs-vercel" style={{ color: "#7eb6ff" }}>
+        <a href="https://github.com/rachmatm/mcp-dev-knowledge" style={{ color: "#7eb6ff" }}>
           GitHub
         </a>
         .

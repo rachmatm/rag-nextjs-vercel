@@ -12,7 +12,8 @@
  */
 
 import { neon } from '@neondatabase/serverless';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, readdirSync } from 'fs';
+import { join } from 'path';
 import crypto from 'crypto';
 
 // Load DATABASE_URL from environment or .env.local
@@ -82,6 +83,32 @@ function buildSearchableText(entry) {
   ].join(' ');
 }
 
+/**
+ * Load every per-stack JSON file from the knowledge/ directory and concatenate.
+ * Each file is named <stack>.json (e.g. nextjs-vercel.json, react-native.json).
+ * The stack is taken from each entry; if missing it falls back to the filename.
+ */
+function loadKnowledge() {
+  const dir = './knowledge';
+  if (!existsSync(dir)) {
+    throw new Error(`knowledge/ directory not found. Expected per-stack JSON files in ${dir}/`);
+  }
+  const files = readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
+  if (files.length === 0) {
+    throw new Error(`No .json knowledge files found in ${dir}/`);
+  }
+  const all = [];
+  for (const file of files) {
+    const stackFromName = file.replace(/\.json$/, '');
+    const list = JSON.parse(readFileSync(join(dir, file), 'utf-8'));
+    for (const entry of list) {
+      all.push({ ...entry, stack: entry.stack || stackFromName });
+    }
+    console.log(`   • ${file}: ${list.length} entries`);
+  }
+  return all;
+}
+
 async function main() {
   console.log('🚀 Connecting to Neon PostgreSQL...');
 
@@ -132,9 +159,9 @@ async function main() {
   // Full-text search index
   await sql`CREATE INDEX IF NOT EXISTS idx_kb_fts ON knowledge_base USING GIN (to_tsvector('english', searchable_text))`;
 
-  // Load knowledge base
+  // Load knowledge base — one JSON file per stack under knowledge/
   console.log('📚 Loading knowledge base...');
-  const knowledgeBase = JSON.parse(readFileSync('./knowledge-base.json', 'utf-8'));
+  const knowledgeBase = loadKnowledge();
   console.log(`   Found ${knowledgeBase.length} entries`);
 
   // Insert entries

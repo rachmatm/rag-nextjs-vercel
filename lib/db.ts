@@ -55,14 +55,15 @@ export interface SearchParams {
   type?: string;
   severity?: string;
   tags?: string[];
-  stack?: string;
+  /** Required: results are always scoped to exactly one stack. */
+  stack: string;
   limit?: number;
 }
 
 /**
  * Full-text search over the knowledge base with optional metadata filters.
  *
- * Results are ALWAYS scoped to exactly one stack (defaults to DEFAULT_STACK) so
+ * The `stack` is REQUIRED: results are always scoped to exactly one stack so
  * unrelated stacks never mix in the output.
  *
  * Strategy:
@@ -75,8 +76,14 @@ export async function searchKnowledge(params: SearchParams): Promise<KnowledgeEn
   const limit = clampLimit(params.limit, 5);
   const type = nullIfEmpty(params.type);
   const severity = nullIfEmpty(params.severity);
-  // Always scope to a single stack so knowledge domains stay isolated.
-  const stack = nullIfEmpty(params.stack) ?? DEFAULT_STACK;
+  // The stack is required so knowledge domains never mix.
+  const stack = nullIfEmpty(params.stack);
+  if (!stack) {
+    throw new Error(
+      `The "stack" argument is required. Choose exactly one of: ${KNOWN_STACKS.join(", ")}. ` +
+        `Call list_knowledge_filters (without a stack) to see all available stacks and their entry counts.`
+    );
+  }
   const tags = params.tags && params.tags.length > 0 ? params.tags : null;
 
   const ftsQuery = `
