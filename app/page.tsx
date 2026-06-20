@@ -40,6 +40,19 @@ const card: React.CSSProperties = {
 
 const mono = "ui-monospace, SFMono-Regular, Menlo, monospace";
 
+const STACK_INFO: Record<string, { label: string; blurb: string }> = {
+  "nextjs-vercel": {
+    label: "Next.js + Vercel",
+    blurb:
+      "Next.js (App Router), server components, routing, caching, Prisma/Neon, Redis, and Vercel deployment.",
+  },
+  "react-native": {
+    label: "React Native",
+    blurb:
+      "React Native for web, Android and iOS — Expo/bare, Metro, navigation, native builds, react-native-web, EAS.",
+  },
+};
+
 const CONNECT_JSON = `{
   "mcpServers": {
     "dev-knowledge": {
@@ -70,6 +83,7 @@ const REMOTE_JSON = `{
 const EXAMPLE_CALL = `// tools/call -> search_knowledge_base
 {
   "query": "prisma connection pool exhausted on vercel",
+  "stack": "nextjs-vercel",
   "severity": "high",
   "limit": 3
 }`;
@@ -153,9 +167,11 @@ export default async function Home() {
       </h1>
       <p style={{ color: "#9a9aa5", lineHeight: 1.65, marginTop: 0, fontSize: 15 }}>
         A Model Context Protocol server that gives any coding agent instant, structured access to a
-        curated knowledge base of <strong style={{ color: "#cfcfd6" }}>Next.js (App Router) and
-        Vercel</strong> issues, errors, config problems, best practices and code patterns. Backed by
-        Neon Postgres and served from a Vercel serverless function in <code>sin1</code>.
+        curated, multi-stack knowledge base of developer issues, errors, config problems, best
+        practices and code patterns. Each tech stack is <strong style={{ color: "#cfcfd6" }}>kept
+        strictly separate</strong> — a query returns results from exactly one stack and never mixes
+        them. Backed by Neon Postgres and served from a Vercel serverless function in{" "}
+        <code>sin1</code>.
       </p>
 
       {/* Live stats */}
@@ -185,6 +201,27 @@ export default async function Home() {
           ))}
         </div>
       ) : null}
+
+      {/* Stacks — strictly isolated knowledge domains */}
+      <h2 style={{ fontSize: 19, marginTop: 40 }}>Stacks (isolated)</h2>
+      <p style={{ color: "#9a9aa5", fontSize: 14, marginTop: 4 }}>
+        Knowledge is partitioned by stack. Pass the <code>stack</code> argument to{" "}
+        <code>search_knowledge_base</code> to scope results; they never cross stack boundaries.
+      </p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+        {(online ? stats!.stacks : []).map((s) => {
+          const info = STACK_INFO[s.value] ?? { label: s.value, blurb: "" };
+          return (
+            <div key={s.value} style={{ ...card, flex: "1 1 240px", marginBottom: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <code style={{ fontFamily: mono, color: "#cfcfd6" }}>{s.value}</code>
+                <span style={{ color: "#6c6c78", fontSize: 12 }}>{s.count} entries</span>
+              </div>
+              <div style={{ color: "#9a9aa5", marginTop: 6, fontSize: 13 }}>{info.blurb}</div>
+            </div>
+          );
+        })}
+      </div>
 
       {/* Connect */}
       <h2 style={{ fontSize: 19, marginTop: 40 }}>Connect (Streamable HTTP)</h2>

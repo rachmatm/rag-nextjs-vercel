@@ -16,6 +16,23 @@ The MCP server exposes the knowledge base (stored in Neon Postgres) through four
 > **Live server:** `https://mcp-dev-knowledge.vercel.app/api/mcp`
 > Landing page: <https://mcp-dev-knowledge.vercel.app>
 
+### Stacks (strictly isolated)
+
+The knowledge base is partitioned by **tech stack**, and the stacks are kept **completely separate** — a search returns results from exactly one stack and never mixes them. Next.js work and React Native work do not bleed into each other.
+
+| `stack` value | Domain |
+|---------------|--------|
+| `nextjs-vercel` *(default)* | Next.js (App Router) + Vercel — routing, server components, caching, Prisma/Neon, Redis, deployment |
+| `react-native` | React Native for **web, Android, iOS** — Expo/bare, Metro, navigation, native builds, `react-native-web`, EAS |
+
+How isolation is enforced:
+
+- `search_knowledge_base` always scopes to a single `stack` (defaults to `nextjs-vercel`). Set `stack: "react-native"` when working on a React Native project.
+- `find_similar_entries` only returns entries from the **same stack** as the reference entry.
+- `list_knowledge_filters` (called with no `stack`) lists every stack and its entry count so an agent can discover what exists; pass a `stack` to see filters within just that stack.
+
+Adding a future stack is a data-only change (set `stack` on the new entries and re-run the export) — no code changes required.
+
 ### Tools
 
 | Tool | Input | Returns |
@@ -30,7 +47,7 @@ The MCP server exposes the knowledge base (stored in Neon Postgres) through four
 **Input** — every tool takes a small, typed (Zod) argument set. The primary tool only requires a natural-language `query`; all filters are optional and self-describing, so an agent can call it with zero prior knowledge of the dataset:
 
 ```json
-{ "name": "search_knowledge_base", "arguments": { "query": "prisma connection pool exhausted on vercel", "limit": 3 } }
+{ "name": "search_knowledge_base", "arguments": { "query": "prisma connection pool exhausted on vercel", "stack": "nextjs-vercel", "limit": 3 } }
 ```
 
 **Output** — results are returned **both** as a JSON text block (consumed by every MCP client today) and as `structuredContent` (for clients that support typed output). Each result is a stable, flat object:

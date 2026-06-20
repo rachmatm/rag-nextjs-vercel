@@ -42,6 +42,14 @@ function getSql(): NeonQueryFunction<false, false> {
 
 const ENTRY_COLUMNS = `id, type, symptoms, root_cause, fix, tags, severity, frequency, related_docs, version, stack`;
 
+/**
+ * Tech stacks are kept STRICTLY ISOLATED: a search only ever returns entries
+ * from a single stack, so Next.js/Vercel knowledge never leaks into React Native
+ * work and vice versa. New stacks can be added to the data without code changes.
+ */
+export const KNOWN_STACKS = ["nextjs-vercel", "react-native"] as const;
+export const DEFAULT_STACK = "nextjs-vercel";
+
 export interface SearchParams {
   query: string;
   type?: string;
@@ -54,6 +62,9 @@ export interface SearchParams {
 /**
  * Full-text search over the knowledge base with optional metadata filters.
  *
+ * Results are ALWAYS scoped to exactly one stack (defaults to DEFAULT_STACK) so
+ * unrelated stacks never mix in the output.
+ *
  * Strategy:
  *  1. Rank with `websearch_to_tsquery` (handles quotes, operators, stop words gracefully).
  *  2. If that yields nothing (e.g. exact error codes / identifiers), fall back to a
@@ -64,7 +75,8 @@ export async function searchKnowledge(params: SearchParams): Promise<KnowledgeEn
   const limit = clampLimit(params.limit, 5);
   const type = nullIfEmpty(params.type);
   const severity = nullIfEmpty(params.severity);
-  const stack = nullIfEmpty(params.stack);
+  // Always scope to a single stack so knowledge domains stay isolated.
+  const stack = nullIfEmpty(params.stack) ?? DEFAULT_STACK;
   const tags = params.tags && params.tags.length > 0 ? params.tags : null;
 
   const ftsQuery = `
@@ -110,14 +122,15 @@ export async function getEntry(id: number): Promise<KnowledgeEntry | null> {
 
 /**
  * Find entries related to a given entry by tag overlap (and same type as a tie-breaker).
- * This is more meaningful than the deterministic hash embeddings for clustering.
+ * Results are restricted to the SAME stack as the reference entry, so related
+ * suggestions never cross stack boundaries.
  */
 export async function findSimilar(id: number, limit = 5): Promise<KnowledgeEntry[]> {
   const sql = getSql();
   const n = clampLimit(limit, 5);
   const query = `
     WITH target AS (
-      SELECT tags, type FROM knowledge_base WHERE id = $1
+      SELECT tags, type, stack FROM knowledge_base WHERE id = $1
     )
     SELECT ${prefixColumns("kb")},
       cardinality(ARRAY(
@@ -125,6 +138,7 @@ export async function findSimilar(id: number, limit = 5): Promise<KnowledgeEntry
       )) AS shared_tags
     FROM knowledge_base kb, target t
     WHERE kb.id <> $1
+      AND kb.stack = t.stack
       AND kb.tags && t.tags
     ORDER BY shared_tags DESC, (kb.type = t.type) DESC, kb.id ASC
     LIMIT $2
