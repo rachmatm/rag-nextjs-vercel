@@ -10,3 +10,10 @@ uploads/
 next-env.d.ts
 .vercel
 *.tsbuildinfo
+
+# Never ignore these — core project content
+!claude-skills/
+!kiro-powers/
+!knowledge/
+!lib/
+!export-to-neon.mjs

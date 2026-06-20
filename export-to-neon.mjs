@@ -7,7 +7,7 @@
  * Usage:
  *   DATABASE_URL="postgresql://user:pass@host/db?sslmode=require" node export-to-neon.mjs
  * 
- * Or create a .env.local file:
+ * Or create a .env file:
  *   DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
  */
 
@@ -16,11 +16,11 @@ import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import crypto from 'crypto';
 
-// Load DATABASE_URL from environment or .env.local
+// Load DATABASE_URL from environment or .env
 let DATABASE_URL = process.env.DATABASE_URL;
 
-if (!DATABASE_URL && existsSync('.env.local')) {
-  const envContent = readFileSync('.env.local', 'utf-8');
+if (!DATABASE_URL && existsSync('.env')) {
+  const envContent = readFileSync('.env', 'utf-8');
   const match = envContent.match(/^DATABASE_URL=(.+)$/m);
   if (match) DATABASE_URL = match[1].trim().replace(/^["']|["']$/g, '');
 }
@@ -31,7 +31,7 @@ if (!DATABASE_URL) {
   console.error('Usage:');
   console.error('  DATABASE_URL="postgresql://user:pass@host/db?sslmode=require" node export-to-neon.mjs');
   console.error('');
-  console.error('Or create a .env.local file with:');
+  console.error('Or create a .env file with:');
   console.error('  DATABASE_URL=postgresql://user:pass@host/db?sslmode=require');
   process.exit(1);
 }

@@ -1,0 +1,41 @@
+{
+  "name": "react-native-expert",
+  "displayName": "React Native Expert",
+  "version": "1.0.0",
+  "description": "Senior React Native engineer (Expo + bare, for web/Android/iOS) backed by a live, curated RAG knowledge base. Always scopes queries to the react-native stack.",
+  "keywords": [
+    "react-native",
+    "expo",
+    "metro",
+    "android",
+    "ios",
+    "react-navigation",
+    "expo-router",
+    "hermes",
+    "reanimated",
+    "flatlist",
+    "eas",
+    "react-native-web",
+    "mobile"
+  ],
+  "author": "mcp-dev-knowledge",
+  "license": "ISC",
+  "steering": [
+    "steering/react-native-expert.md"
+  ],
+  "mcpServers": {
+    "dev-knowledge": {
+      "url": "https://mcp-dev-knowledge.vercel.app/api/mcp",
+      "headers": {
+        "Authorization": "Bearer ${MCP_API_KEY}"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "list_knowledge_filters",
+        "search_knowledge_base",
+        "get_knowledge_entry",
+        "find_similar_entries"
+      ]
+    }
+  }
+}

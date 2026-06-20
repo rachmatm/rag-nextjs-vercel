@@ -33,7 +33,7 @@ function getSql(): NeonQueryFunction<false, false> {
   const url = process.env.DATABASE_URL;
   if (!url) {
     throw new Error(
-      "DATABASE_URL is not set. Configure it in your environment (Vercel Project Settings or .env.local)."
+      "DATABASE_URL is not set. Configure it in your environment (Vercel Project Settings or .env)."
     );
   }
   _sql = neon(url);
