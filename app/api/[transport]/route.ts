@@ -12,7 +12,11 @@ export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const STACK_DESCRIPTION =
-  "Tech stack to search within. Defaults to 'nextjs-vercel'. Future stacks (e.g. 'react-native') may be added.";
+  "REQUIRED. Which tech stack to scope this query to. Stacks are STRICTLY ISOLATED — a query " +
+  "returns entries from exactly one stack and never mixes them, so you MUST choose one. " +
+  "Valid values: 'nextjs-vercel' (Next.js App Router + Vercel) and 'react-native' " +
+  "(React Native for web/Android/iOS). Set it to match the project you are working on. " +
+  "If unsure which stacks exist, call list_knowledge_filters (without a stack) FIRST to list them.";
 
 /**
  * Return a tool result as both a readable JSON text block (consumed by every MCP
@@ -57,10 +61,14 @@ const handler = createMcpHandler(
     server.registerTool(
       "search_knowledge_base",
       {
-        title: "Search Next.js + Vercel Knowledge Base",
+        title: "Search Dev Knowledge Base",
         description:
-          "Search a curated RAG knowledge base of Next.js (App Router) + Vercel issues, errors, " +
-          "config problems, best practices, code patterns and performance cases. " +
+          "Search a curated, multi-stack RAG knowledge base of developer issues, errors, config " +
+          "problems, best practices, code patterns and performance cases. " +
+          "Two ISOLATED stacks are available: 'nextjs-vercel' (Next.js App Router + Vercel) and " +
+          "'react-native' (React Native for web/Android/iOS). A query returns results from exactly " +
+          "one stack — the `stack` argument is REQUIRED, so set it to match your project. If you do " +
+          "not know which stacks exist, call list_knowledge_filters first. " +
           "Use this BEFORE attempting a fix when you hit an error, a confusing log, a config question, " +
           "or want a vetted pattern. Returns ranked entries, each with root_cause and concrete fix steps.",
         inputSchema: {
@@ -91,7 +99,7 @@ const handler = createMcpHandler(
             .describe(
               "Optional. Return only entries containing at least one of these tags, e.g. ['redis','rate-limiting']."
             ),
-          stack: z.string().optional().describe(STACK_DESCRIPTION),
+          stack: z.string().min(1).describe(STACK_DESCRIPTION),
           limit: z
             .number()
             .int()
@@ -106,7 +114,7 @@ const handler = createMcpHandler(
           const rows = await searchKnowledge({ query, type, severity, tags, stack, limit });
           return jsonResult({
             query,
-            filters: { type: type ?? null, severity: severity ?? null, tags: tags ?? null, stack: stack ?? "nextjs-vercel" },
+            filters: { type: type ?? null, severity: severity ?? null, tags: tags ?? null, stack },
             count: rows.length,
             results: rows.map(shapeEntry),
           });
@@ -146,7 +154,8 @@ const handler = createMcpHandler(
         title: "Find Similar Entries",
         description:
           "Given an entry id, return related entries that share tags (and type). " +
-          "Useful for discovering adjacent issues, alternative fixes, or related patterns.",
+          "Results stay WITHIN THE SAME STACK as the reference entry, so suggestions never " +
+          "cross stack boundaries. Useful for discovering adjacent issues, alternative fixes, or related patterns.",
         inputSchema: {
           id: z.number().int().positive().describe("The id of the reference entry."),
           limit: z
@@ -178,9 +187,18 @@ const handler = createMcpHandler(
         description:
           "Discover what can be searched: total entry count, and the valid values (with counts) for " +
           "type, severity, frequency, stack, plus the most common tags. " +
-          "Call this first if you are unsure which filters to pass to search_knowledge_base.",
+          "Omit `stack` to see ALL stacks and their entry counts (use this to discover which stacks " +
+          "exist); pass a `stack` to see the filters available within that one stack. " +
+          "Call this first if you are unsure which stack or filters to pass to search_knowledge_base.",
         inputSchema: {
-          stack: z.string().optional().describe(STACK_DESCRIPTION),
+          stack: z
+            .string()
+            .optional()
+            .describe(
+              "Optional here. Omit to list ALL stacks and their entry counts (use this to discover " +
+                "which stacks exist before searching). Pass a stack (e.g. 'nextjs-vercel' or " +
+                "'react-native') to see the filter values available within just that stack."
+            ),
         },
       },
       async ({ stack }) => {
@@ -199,10 +217,14 @@ const handler = createMcpHandler(
       version: "2.0.0",
     },
     instructions:
-      "Knowledge base of Next.js (App Router) + Vercel issues, fixes, best practices and patterns. " +
-      "Workflow: when you encounter an error/bug/config question, call search_knowledge_base with the " +
-      "error text or a short description. Use list_knowledge_filters to discover valid filter values, " +
-      "get_knowledge_entry to expand a result, and find_similar_entries to explore related solutions.",
+      "Multi-stack knowledge base of developer issues, fixes, best practices and patterns. " +
+      "It currently covers two STRICTLY ISOLATED stacks: 'nextjs-vercel' (Next.js App Router + " +
+      "Vercel) and 'react-native' (React Native for web/Android/iOS). Next.js work and React Native " +
+      "work are kept separate — a search returns results from exactly one stack and never mixes them. " +
+      "Workflow: determine the project's stack first (call list_knowledge_filters to see available " +
+      "stacks), then call search_knowledge_base with the error text or a short description AND the " +
+      "matching `stack` — the `stack` argument is REQUIRED. Use get_knowledge_entry to expand a result and " +
+      "find_similar_entries (same-stack only) to explore related solutions.",
   },
   {
     basePath: "/api",

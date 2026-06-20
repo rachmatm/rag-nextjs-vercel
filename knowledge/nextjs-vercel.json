@@ -2136,7 +2136,7 @@
       "Don't use string concatenation for dynamic classes: use clsx or tailwind-merge instead",
       "Bad: className={`text-${color}-500`} - Tailwind can't detect this at build time",
       "Good: className={clsx({ 'text-red-500': color === 'red', 'text-blue-500': color === 'blue' })}",
-      "Use tailwind-merge to resolve conflicting classes: import { twMerge } from 'tailwind-merge'; twMerge('px-4 px-8') \u2192 'px-8'",
+      "Use tailwind-merge to resolve conflicting classes: import { twMerge } from 'tailwind-merge'; twMerge('px-4 px-8') → 'px-8'",
       "Install: npm install clsx tailwind-merge"
     ],
     "tags": [
@@ -2196,7 +2196,7 @@
       "Use tailwind-merge to resolve conflicts: npm install tailwind-merge",
       "Create utility: import { twMerge } from 'tailwind-merge'; import { clsx, type ClassValue } from 'clsx'; export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)) }",
       "Use cn() for conditional + merged classes: className={cn('base-styles', conditional && 'extra', props.className)}",
-      "This resolves: cn('px-4', 'px-8') \u2192 'px-8' (last wins)",
+      "This resolves: cn('px-4', 'px-8') → 'px-8' (last wins)",
       "Add !important with Tailwind: className='!text-red-500' (use sparingly)"
     ],
     "tags": [
@@ -2324,7 +2324,7 @@
       "Store after computing: await redis.set(cacheKey, embedding, { ex: 86400 * 7 }) // 7 day TTL",
       "For batch: use redis.mget() and redis.mset() for multiple embeddings",
       "Pipeline for efficiency: const pipe = redis.pipeline(); texts.forEach(t => pipe.get(`embed:${hash(t)}`)); const results = await pipe.exec()",
-      "Consider memory: 1536-dim float32 embedding \u2248 6KB; plan TTL and eviction accordingly"
+      "Consider memory: 1536-dim float32 embedding ≈ 6KB; plan TTL and eviction accordingly"
     ],
     "tags": [
       "redis",
@@ -3193,7 +3193,7 @@
       "Supabase local (supabase start) + Supabase cloud: best for realtime features, auth integration, storage",
       "SQLite path: use @libsql/client or better-sqlite3 locally, Turso in production",
       "PostgreSQL path: Docker locally, Neon serverless in production with Prisma ORM",
-      "Decision factors: need realtime? \u2192 Supabase. Simple CRUD? \u2192 SQLite/Turso. Complex queries? \u2192 PostgreSQL/Neon"
+      "Decision factors: need realtime? → Supabase. Simple CRUD? → SQLite/Turso. Complex queries? → PostgreSQL/Neon"
     ],
     "tags": [
       "database",
@@ -3345,7 +3345,7 @@
     ],
     "root_cause": "Need reliable, idempotent webhook processing with deduplication and retry tracking",
     "fix": [
-      "1. Receive webhook \u2192 verify signature \u2192 extract delivery ID",
+      "1. Receive webhook → verify signature → extract delivery ID",
       "2. Dedup check: const isDup = await redis.set(`webhook:${deliveryId}`, '1', { nx: true, ex: 86400 }); if (!isDup) return Response.json({ status: 'duplicate' })",
       "3. Store payload: await redis.set(`webhook-payload:${deliveryId}`, JSON.stringify(payload), { ex: 86400 })",
       "4. Queue for processing: await inngest.send({ name: 'webhook/received', data: { deliveryId, source: 'stripe' } })",
@@ -3723,7 +3723,7 @@
     "fix": [
       "Use Neon-Vercel integration for automatic branch mapping",
       "Integration auto-creates Neon branch for each Vercel preview deployment",
-      "Set DATABASE_URL per environment in Vercel: Production \u2192 main branch, Preview \u2192 feature branch",
+      "Set DATABASE_URL per environment in Vercel: Production → main branch, Preview → feature branch",
       "Without integration: manually create branch: neon branches create --name preview-branch",
       "Run migrations on preview branch: npx prisma migrate deploy (with preview branch DATABASE_URL)",
       "Delete unused branches: neon branches delete old-branch-name"
@@ -4002,7 +4002,7 @@
     ],
     "root_cause": "Postgres Changes use WAL-based replication which adds latency compared to Broadcast",
     "fix": [
-      "Postgres Changes typically have 100-500ms latency (WAL \u2192 detect \u2192 broadcast)",
+      "Postgres Changes typically have 100-500ms latency (WAL → detect → broadcast)",
       "For lower latency: use Broadcast channel for ephemeral events, only use postgres_changes for persistence",
       "Pattern: INSERT to DB + simultaneously broadcast via channel for instant UI update",
       "await supabase.from('messages').insert(msg); channel.send({ type: 'broadcast', event: 'new-message', payload: msg })",
@@ -4192,7 +4192,7 @@
       "Enable plugin: npm install @tailwindcss/container-queries (or built-in in Tailwind v3.4+)",
       "Mark container: className='@container'",
       "Respond to container: className='@md:grid-cols-2 @lg:grid-cols-3'",
-      "Named containers: className='@container/sidebar' \u2192 child: '@md/sidebar:block'",
+      "Named containers: className='@container/sidebar' → child: '@md/sidebar:block'",
       "Custom sizes in config: theme: { containers: { xs: '320px', sm: '480px' } }",
       "Use for reusable components that might appear in different layout contexts (sidebar vs main)"
     ],
@@ -4224,7 +4224,7 @@
       "For schema changes requiring column drops/modifications, Drizzle uses table recreation strategy",
       "Use drizzle-kit push:sqlite for development (destructive but fast)",
       "For production migrations: drizzle-kit generate:sqlite creates proper migration with table recreation",
-      "Manual migration pattern: CREATE new table \u2192 INSERT INTO new SELECT FROM old \u2192 DROP old \u2192 RENAME new",
+      "Manual migration pattern: CREATE new table → INSERT INTO new SELECT FROM old → DROP old → RENAME new",
       "Test migrations on local SQLite before running against Turso",
       "Backup Turso before risky migrations: turso db dump your-db > backup.sql"
     ],
@@ -4281,12 +4281,12 @@
     ],
     "root_cause": "Need architecture that provides type safety from database schema to client components",
     "fix": [
-      "Layer 1 - Database: Prisma schema \u2192 generates TypeScript types, or Drizzle schema \u2192 inferred types",
+      "Layer 1 - Database: Prisma schema → generates TypeScript types, or Drizzle schema → inferred types",
       "Layer 2 - Validation: Zod schemas share types with Prisma: const CreatePostSchema = z.object({...}); type CreatePost = z.infer<typeof CreatePostSchema>",
       "Layer 3 - Server: Server Actions/API routes use Prisma types + Zod validation",
       "Layer 4 - Client: Import shared types from lib/types.ts, use with React Hook Form + zodResolver",
       "Layer 5 - Response: Define ActionResult<T> types for consistent server-client contract",
-      "Generate types from external sources: Supabase gen types, OpenAPI \u2192 zod codegen",
+      "Generate types from external sources: Supabase gen types, OpenAPI → zod codegen",
       "Single source of truth: Prisma schema + Zod schemas = all types you need"
     ],
     "tags": [
@@ -5598,8 +5598,8 @@
       "Use Server Components for initial data: async function Page() { const data = await getData(); return <List data={data} /> }",
       "useEffect fetching is appropriate ONLY for: user-initiated actions, real-time updates, post-mount data",
       "Server-fetched data is available immediately (no loading state), included in HTML (SEO-friendly)",
-      "Anti-pattern: 'use client' \u2192 useEffect \u2192 fetch('/api/data') \u2192 setState \u2192 render",
-      "Better pattern: Server Component fetches \u2192 passes data as props \u2192 Client Component handles interactivity",
+      "Anti-pattern: 'use client' → useEffect → fetch('/api/data') → setState → render",
+      "Better pattern: Server Component fetches → passes data as props → Client Component handles interactivity",
       "Exception: infinite scroll, search-as-you-type, polling - these legitimately need client-side fetching"
     ],
     "tags": [
@@ -5812,7 +5812,7 @@
     "fix": [
       "Emit events on state changes: await inngest.send({ name: 'order/placed', data: order })",
       "Separate read and write models (CQRS): writes go to main DB, reads from denormalized cache/view",
-      "Event handlers process asynchronously: order/placed \u2192 send-confirmation, update-inventory, notify-admin",
+      "Event handlers process asynchronously: order/placed → send-confirmation, update-inventory, notify-admin",
       "Use Inngest for orchestration: multi-step workflows with automatic retries per step",
       "Store events for audit trail: event_log table with eventType, payload, timestamp, userId",
       "Benefits: loose coupling, better scalability, complete audit history, easy to add new handlers"
@@ -5903,11 +5903,11 @@
     ],
     "root_cause": "Reliable background job processing that handles failures gracefully in serverless",
     "fix": [
-      "Receive trigger (API/webhook) \u2192 Validate \u2192 Acknowledge (200) \u2192 Queue for processing",
+      "Receive trigger (API/webhook) → Validate → Acknowledge (200) → Queue for processing",
       "Queue options: Inngest (complex workflows), QStash (simple HTTP callbacks), Redis list (basic FIFO)",
       "Each job should be idempotent: running twice with same input produces same result",
       "Dedup with Redis: check dedup key before processing, set on completion",
-      "Track job state: pending \u2192 processing \u2192 completed/failed (store in Redis hash or DB)",
+      "Track job state: pending → processing → completed/failed (store in Redis hash or DB)",
       "Dead letter handling: after max retries, move to DLQ, alert team, allow manual replay"
     ],
     "tags": [
@@ -5937,10 +5937,10 @@
     "fix": [
       "Install: npm install stripe @stripe/stripe-js",
       "Server: const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)",
-      "Create checkout session: app/api/checkout/route.ts \u2192 stripe.checkout.sessions.create({ mode: 'subscription', line_items: [{ price: priceId, quantity: 1 }], success_url, cancel_url })",
+      "Create checkout session: app/api/checkout/route.ts → stripe.checkout.sessions.create({ mode: 'subscription', line_items: [{ price: priceId, quantity: 1 }], success_url, cancel_url })",
       "Client redirect: const { url } = await response.json(); window.location.href = url",
-      "Webhook handler: app/api/webhooks/stripe/route.ts \u2192 verify signature with stripe.webhooks.constructEvent(body, sig, webhookSecret)",
-      "Handle events: checkout.session.completed \u2192 provision access, invoice.payment_failed \u2192 notify user",
+      "Webhook handler: app/api/webhooks/stripe/route.ts → verify signature with stripe.webhooks.constructEvent(body, sig, webhookSecret)",
+      "Handle events: checkout.session.completed → provision access, invoice.payment_failed → notify user",
       "Set STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY"
     ],
     "tags": [
@@ -6002,7 +6002,7 @@
       "API route: app/api/search/route.ts accepts ?q=query parameter",
       "For PostgreSQL/Neon: use to_tsvector + plainto_tsquery for full-text search",
       "For SQLite/Turso: use FTS5 virtual table for full-text search",
-      "For vector search: generate embedding \u2192 query pgvector with cosine similarity",
+      "For vector search: generate embedding → query pgvector with cosine similarity",
       "Cache results in Redis with short TTL: redis.set(`search:${hash(query)}`, results, { ex: 60 })",
       "Return highlighted snippets and metadata for rich search results UI"
     ],
@@ -6792,7 +6792,7 @@
     ],
     "root_cause": "Route groups organize code and apply layouts to subsets of routes without affecting URL path",
     "fix": [
-      "Create with parentheses: app/(marketing)/about/page.tsx \u2192 URL is /about (no /marketing)",
+      "Create with parentheses: app/(marketing)/about/page.tsx → URL is /about (no /marketing)",
       "Use for shared layouts: app/(auth)/login/page.tsx and app/(auth)/register/page.tsx share (auth)/layout.tsx",
       "Multiple root layouts: app/(marketing)/layout.tsx and app/(app)/layout.tsx for completely different UIs",
       "Organize by feature: app/(dashboard)/settings/, app/(dashboard)/profile/ share dashboard layout",
@@ -6859,7 +6859,7 @@
       "Bad for: complex business logic, database queries, file processing",
       "Use matcher to skip static assets: export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'] }",
       "Middleware runs on Edge Runtime: only use edge-compatible packages",
-      "Chain concerns in order: rate limit \u2192 auth \u2192 locale \u2192 rewrite",
+      "Chain concerns in order: rate limit → auth → locale → rewrite",
       "Return NextResponse.next() to continue, NextResponse.redirect() to redirect, NextResponse.rewrite() for URL masking"
     ],
     "tags": [
@@ -6950,7 +6950,7 @@
       "Add version field: version Int @default(0)",
       "Update with version check: const updated = await prisma.post.updateMany({ where: { id, version: currentVersion }, data: { ...changes, version: { increment: 1 } } })",
       "Check result: if (updated.count === 0) throw new Error('Conflict: record was modified by another user')",
-      "Client flow: fetch record with version \u2192 user edits \u2192 submit with version \u2192 if conflict, show latest and ask user to merge",
+      "Client flow: fetch record with version → user edits → submit with version → if conflict, show latest and ask user to merge",
       "Return 409 Conflict status to client with latest data for resolution",
       "Alternative: use updatedAt timestamp instead of version number for simpler cases"
     ],
@@ -7232,7 +7232,7 @@
       "Run tests on PR: npm run test (Vitest unit + integration tests)",
       "Preview deployments: Vercel automatically creates preview for every PR",
       "Production deploy: only from main branch, after PR merge",
-      "GitHub Actions workflow: on: pull_request \u2192 lint, typecheck, test, build",
+      "GitHub Actions workflow: on: pull_request → lint, typecheck, test, build",
       "Post-deploy: run smoke tests against preview URL, verify critical flows",
       "Protect main branch: require status checks (CI pass) before merge"
     ],
@@ -7489,7 +7489,7 @@
       "Programmatic replay: await inngest.send({ name: 'original/event', data: originalPayload }) // re-triggers all handlers",
       "Batch replay from database: query failed events from audit log, re-send each",
       "Idempotency is key: ensure replayed events don't create duplicates (check with Redis dedup)",
-      "Pattern: store event in DB before processing \u2192 on replay, check completion status first",
+      "Pattern: store event in DB before processing → on replay, check completion status first",
       "Dead letter recovery: periodically scan DLQ, attempt reprocessing or escalate"
     ],
     "tags": [
@@ -7740,7 +7740,7 @@
       "This is required in Next.js App Router - useSearchParams opts into client-side rendering",
       "Without Suspense boundary: entire page becomes client-rendered (bad for SEO)",
       "For server-side access: use page props searchParams (in page.tsx) instead of the hook",
-      "Pattern: page.tsx receives searchParams prop \u2192 passes to client component \u2192 component uses for interaction",
+      "Pattern: page.tsx receives searchParams prop → passes to client component → component uses for interaction",
       "The Suspense boundary allows the rest of the page to remain server-rendered"
     ],
     "tags": [
@@ -8051,12 +8051,12 @@
     ],
     "root_cause": "Monorepo projects need specific Vercel configuration for correct build targeting",
     "fix": [
-      "Set Root Directory in Vercel: Project Settings > General > Root Directory \u2192 packages/web",
+      "Set Root Directory in Vercel: Project Settings > General > Root Directory → packages/web",
       "Or use vercel.json in root: { \"buildCommand\": \"cd ../.. && turbo run build --filter=web\", \"framework\": \"nextjs\" }",
       "Install command: npm install (from root, installs all workspaces)",
       "Turborepo: vercel detects turbo.json and uses turbo for builds automatically",
       "Environment variables: set at root level, available to all packages",
-      "Ignore build step: Settings > Git > Ignored Build Step \u2192 npx turbo-ignore (skip unchanged packages)"
+      "Ignore build step: Settings > Git > Ignored Build Step → npx turbo-ignore (skip unchanged packages)"
     ],
     "tags": [
       "monorepo",
@@ -8118,7 +8118,7 @@
       "2. Common causes: a) Date/time rendering without UTC b) browser extensions modifying DOM c) localStorage-dependent rendering d) window/document usage during SSR",
       "3. Fix dates: use suppressHydrationWarning or format consistently with UTC",
       "4. Fix browser-only code: wrap in useEffect or use dynamic(() => import('./Component'), { ssr: false })",
-      "5. Fix conditional rendering: if (typeof window !== 'undefined') \u2192 move to useEffect with useState",
+      "5. Fix conditional rendering: if (typeof window !== 'undefined') → move to useEffect with useState",
       "6. Verify: disable browser extensions to rule them out",
       "7. Use React DevTools to identify the specific component causing the mismatch"
     ],
@@ -8209,7 +8209,7 @@
     ],
     "root_cause": "Consistent commit messages enable automated changelogs and clear history",
     "fix": [
-      "Format: <type>(<scope>): <description> \u2014 e.g., feat(auth): add Google OAuth login",
+      "Format: <type>(<scope>): <description> — e.g., feat(auth): add Google OAuth login",
       "Types: feat (new feature), fix (bug fix), docs, style, refactor, perf, test, chore, ci",
       "Keep subject under 72 characters, use imperative mood (add not added)",
       "Body: explain WHY (not what - the diff shows what), reference issue numbers",
@@ -8271,7 +8271,7 @@
     ],
     "root_cause": "Validate data at every trust boundary: user input, API responses, database results, file reads",
     "fix": [
-      "User input \u2192 Server Action: validate with Zod schema, return typed errors to client",
+      "User input → Server Action: validate with Zod schema, return typed errors to client",
       "External API response: validate shape before using (APIs can change without notice)",
       "URL parameters: z.object({ id: z.string().uuid() }).parse(params)",
       "Webhook payload: verify signature THEN validate body schema",
@@ -8307,7 +8307,7 @@
       "Show pending state: import { useFormStatus } from 'react-dom'; const { pending } = useFormStatus(); <button disabled={pending}>",
       "Validate client-side for UX, server-side for security (both with same Zod schema)",
       "Show field-level errors: return { fieldErrors } from server action, display per-input",
-      "Progressive enhancement: forms work without JavaScript (submit \u2192 server action \u2192 redirect)",
+      "Progressive enhancement: forms work without JavaScript (submit → server action → redirect)",
       "Optimistic updates: useOptimistic for instant feedback while server processes",
       "Reset form on success: use key prop on form or ref.reset()"
     ],
@@ -8401,7 +8401,7 @@
       "Install: npm install sonner (lightweight, accessible toast library)",
       "Add Toaster to layout: import { Toaster } from 'sonner'; <Toaster position='top-right' richColors />",
       "Show toast: import { toast } from 'sonner'; toast.success('Post created!'); toast.error('Failed to save')",
-      "From Server Action: return { success: true, message: 'Created!' } \u2192 client shows toast based on result",
+      "From Server Action: return { success: true, message: 'Created!' } → client shows toast based on result",
       "With promise: toast.promise(saveData(), { loading: 'Saving...', success: 'Saved!', error: 'Failed' })",
       "Customize: toast('Custom', { description: 'Details here', duration: 5000, action: { label: 'Undo', onClick: () => undo() } })"
     ],
@@ -8494,7 +8494,7 @@
     "fix": [
       "Use next/font for automatic optimization: import { Inter } from 'next/font/google'",
       "Apply: const inter = Inter({ subsets: ['latin'] }); <body className={inter.className}>",
-      "Variable fonts: Inter({ subsets: ['latin'], variable: '--font-inter' }) \u2192 use in Tailwind config",
+      "Variable fonts: Inter({ subsets: ['latin'], variable: '--font-inter' }) → use in Tailwind config",
       "Local fonts: import localFont from 'next/font/local'; const myFont = localFont({ src: './fonts/MyFont.woff2' })",
       "Benefits: self-hosted (no Google Fonts request), preloaded, no CLS, no FOUT",
       "In Tailwind config: fontFamily: { sans: ['var(--font-inter)', ...defaultTheme.fontFamily.sans] }"
@@ -8557,7 +8557,7 @@
       "URL-based versioning: /api/v1/users, /api/v2/users (most common, clearest)",
       "In Next.js: app/api/v1/users/route.ts and app/api/v2/users/route.ts",
       "Share logic: both versions call same service layer, differ in response mapping",
-      "Deprecation flow: v1 returns Deprecation header \u2192 remove after migration period",
+      "Deprecation flow: v1 returns Deprecation header → remove after migration period",
       "Non-breaking changes (safe): adding new fields, adding new endpoints",
       "Breaking changes (need new version): removing fields, changing field types, changing response structure",
       "For internal APIs (SPA): versioning often unnecessary since you control both sides"
@@ -8843,7 +8843,7 @@
       "Context: for truly global state (theme, auth, locale) that many components need",
       "Composition: pass components as children or slots instead of drilling data",
       "Zustand: for client-side shared state that updates frequently",
-      "Bad: Page \u2192 Layout \u2192 Sidebar \u2192 Menu \u2192 MenuItem (passing user through all)",
+      "Bad: Page → Layout → Sidebar → Menu → MenuItem (passing user through all)",
       "Good: MenuItem fetches user directly (Server Component) or uses useUser() hook (Client)"
     ],
     "tags": [
@@ -9150,7 +9150,7 @@
       "Use cmdk library: npm install cmdk",
       "Create component: import { Command } from 'cmdk'; <Command.Dialog open={open} onOpenChange={setOpen}><Command.Input /><Command.List><Command.Group heading='Pages'><Command.Item onSelect={() => router.push('/dashboard')}>Dashboard</Command.Item></Command.Group></Command.List></Command.Dialog>",
       "Keyboard shortcut: useEffect(() => { const down = (e) => { if (e.key === 'k' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); setOpen(true) } }; document.addEventListener('keydown', down); return () => document.removeEventListener('keydown', down) }, [])",
-      "Search API: debounce input \u2192 fetch from /api/search \u2192 render results in Command.List",
+      "Search API: debounce input → fetch from /api/search → render results in Command.List",
       "Group results: Pages, Actions (create post, toggle theme), Recent items",
       "Tailwind styling: fixed inset-0 z-50, backdrop-blur-sm for overlay"
     ],
@@ -9214,7 +9214,7 @@
       "Schedule actual deletion: setTimeout(() => actuallyDelete(id), 5000)",
       "Undo: re-add to UI state + cancel the scheduled deletion",
       "Server: use soft delete (set deletedAt) then hard delete via cron after grace period",
-      "Pattern: optimistic UI \u2192 toast with undo \u2192 background permanent delete after timeout"
+      "Pattern: optimistic UI → toast with undo → background permanent delete after timeout"
     ],
     "tags": [
       "optimistic-update",
@@ -9396,11 +9396,11 @@
     ],
     "root_cause": "Route segment configuration controls rendering behavior at the page/layout level",
     "fix": [
-      "export const dynamic = 'force-dynamic' | 'force-static' | 'auto' \u2014 control rendering strategy",
-      "export const revalidate = 3600 \u2014 ISR: revalidate every hour",
-      "export const maxDuration = 60 \u2014 extend serverless function timeout (Pro plan)",
-      "export const preferredRegion = 'sin1' \u2014 deploy function to specific region",
-      "export const runtime = 'edge' | 'nodejs' \u2014 choose execution runtime",
+      "export const dynamic = 'force-dynamic' | 'force-static' | 'auto' — control rendering strategy",
+      "export const revalidate = 3600 — ISR: revalidate every hour",
+      "export const maxDuration = 60 — extend serverless function timeout (Pro plan)",
+      "export const preferredRegion = 'sin1' — deploy function to specific region",
+      "export const runtime = 'edge' | 'nodejs' — choose execution runtime",
       "Apply to page.tsx for single page, layout.tsx to affect all children",
       "Check build output: next build shows (static), (dynamic), (ISR) per route"
     ],
@@ -9462,7 +9462,7 @@
       "Use searchParams for state: ?page=2&sort=name&order=asc&status=active",
       "Server Component reads params: const { page, sort, order, ...filters } = searchParams",
       "Query with params: prisma.user.findMany({ where: filters, orderBy: { [sort]: order }, skip: (page-1)*20, take: 20 })",
-      "Column headers as Links: <Link href={`?sort=name&order=${toggleOrder}`}>Name \u2195</Link>",
+      "Column headers as Links: <Link href={`?sort=name&order=${toggleOrder}`}>Name ↕</Link>",
       "Filter controls: use form with action that navigates to filtered URL",
       "Benefits: URL-shareable state, works without JS, server-rendered, SEO-friendly",
       "For client-side: use TanStack Table for complex interactions (drag, resize, virtual scroll)"
@@ -9496,7 +9496,7 @@
       "Error state: show what went wrong + how to fix/retry",
       "Skeleton: className='animate-pulse bg-gray-200 rounded h-4 w-3/4' matching final content dimensions",
       "loading.tsx: create per route segment for automatic Suspense wrapper",
-      "Never show infinite loading: add timeout \u2192 show error state if data never arrives",
+      "Never show infinite loading: add timeout → show error state if data never arrives",
       "Partial loading: stream in sections independently with multiple Suspense boundaries"
     ],
     "tags": [
@@ -9556,9 +9556,9 @@
     "fix": [
       "Catch-all: app/docs/[...slug]/page.tsx matches /docs/a, /docs/a/b, /docs/a/b/c",
       "Optional catch-all: app/docs/[[...slug]]/page.tsx also matches /docs (no slug)",
-      "Access params: params.slug is string[] \u2014 e.g., ['a', 'b', 'c'] for /docs/a/b/c",
-      "Route groups: app/(marketing)/page.tsx and app/(app)/page.tsx \u2014 separate layouts, same URL",
-      "Parallel routes: app/@modal/(.)photo/[id] \u2014 intercepts /photo/[id] as modal",
+      "Access params: params.slug is string[] — e.g., ['a', 'b', 'c'] for /docs/a/b/c",
+      "Route groups: app/(marketing)/page.tsx and app/(app)/page.tsx — separate layouts, same URL",
+      "Parallel routes: app/@modal/(.)photo/[id] — intercepts /photo/[id] as modal",
       "Use catch-all for: docs, CMS pages, multi-level categories",
       "Generate static paths: export function generateStaticParams() { return slugs.map(s => ({ slug: s.split('/') })) }"
     ],
@@ -9651,7 +9651,7 @@
       "Vercel Blob: simplest for Vercel apps, good for images/documents, max 500MB/file (Pro), automatic CDN",
       "S3/R2 (Cloudflare): most flexible, cheapest at scale, requires presigned URLs for direct upload",
       "Supabase Storage: best if already using Supabase, RLS-based access control, integrated auth",
-      "Decision: small app with Vercel \u2192 Vercel Blob; need RLS/auth \u2192 Supabase; high volume/custom \u2192 S3/R2",
+      "Decision: small app with Vercel → Vercel Blob; need RLS/auth → Supabase; high volume/custom → S3/R2",
       "All support: direct upload from client, signed URLs for private files, CDN delivery",
       "Cost: Vercel Blob included in plan; Supabase 1GB free; S3/R2 pay per storage+transfer"
     ],
@@ -9715,7 +9715,7 @@
       "Config objects: const ROLES = ['admin', 'user', 'moderator'] as const; type Role = typeof ROLES[number] // 'admin' | 'user' | 'moderator'",
       "Route definitions: const routes = { home: '/', dashboard: '/dashboard', settings: '/settings' } as const",
       "Status maps: const STATUS = { PENDING: 'pending', ACTIVE: 'active', CLOSED: 'closed' } as const",
-      "Without as const: type would be string[] \u2014 loses literal type information",
+      "Without as const: type would be string[] — loses literal type information",
       "Use with satisfies: const config = { port: 3000, host: 'localhost' } as const satisfies Config",
       "Enum alternative: as const objects are more flexible than TypeScript enums (tree-shake, extend)"
     ],
@@ -9808,7 +9808,7 @@
       "Install: npm install -D supabase",
       "Init: npx supabase init (one-time, creates supabase/ directory)",
       "Start: npx supabase start (launches local Postgres, Auth, Storage, Realtime via Docker)",
-      "Local credentials: supabase start prints local URL and anon key \u2014 use in .env.local",
+      "Local credentials: supabase start prints local URL and anon key — use in .env.local",
       "Migrations: write SQL in supabase/migrations/, apply with supabase db reset",
       "Seed data: create supabase/seed.sql for development data",
       "Benefits: offline development, faster iteration, no cloud usage/costs, isolated testing"
@@ -9899,7 +9899,7 @@
     "root_cause": "Store dates in UTC, convert to user timezone only for display",
     "fix": [
       "Always store as UTC in database: use DateTime (Prisma) or timestamptz (PostgreSQL)",
-      "Server: all operations in UTC \u2014 comparison, filtering, sorting on UTC values",
+      "Server: all operations in UTC — comparison, filtering, sorting on UTC values",
       "Display: convert to user timezone only at render time in client components",
       "Get user timezone: Intl.DateTimeFormat().resolvedOptions().timeZone (from browser)",
       "Format: new Intl.DateTimeFormat(locale, { timeZone: userTz, dateStyle: 'medium', timeStyle: 'short' }).format(date)",
@@ -9998,7 +9998,7 @@
       "Pattern: if sidebar fails, main content still renders (and vice versa)",
       "Reset capability: error.tsx receives reset() function to retry rendering",
       "Don't catch everything at root: specific boundaries give better UX and debugging",
-      "Log differently: critical errors (auth, data corruption) \u2192 page team; widget errors \u2192 component owner"
+      "Log differently: critical errors (auth, data corruption) → page team; widget errors → component owner"
     ],
     "tags": [
       "error-handling",
@@ -10059,7 +10059,7 @@
       "Feature branches: feature/add-user-auth, feature/payment-integration",
       "Fix branches: fix/login-redirect-loop, fix/memory-leak-api",
       "Naming: lowercase, hyphens, descriptive: type/short-description",
-      "Flow: feature branch \u2192 PR to main \u2192 Vercel preview \u2192 review \u2192 merge \u2192 auto-deploy",
+      "Flow: feature branch → PR to main → Vercel preview → review → merge → auto-deploy",
       "Keep branches short-lived: merge within 1-3 days to avoid conflicts"
     ],
     "tags": [
@@ -10122,7 +10122,7 @@
       "Update database with new tokens: prisma.account.update({ data: { access_token: newToken, expires_at: newExpiry } })",
       "If refresh fails (token revoked): set error flag, redirect to re-login on next request",
       "For background jobs (Inngest/cron): read refresh_token from DB, refresh before API call",
-      "Token rotation: some providers issue new refresh_token on each use \u2014 always save latest"
+      "Token rotation: some providers issue new refresh_token on each use — always save latest"
     ],
     "tags": [
       "oauth",
@@ -10307,7 +10307,7 @@
       "Store tags as array: tags String[] in Prisma model (PostgreSQL native array)",
       "Filter query: prisma.post.findMany({ where: { tags: { hasEvery: selectedTags } } }) // all tags must match",
       "Or haseSome for any-match: { tags: { hasSome: selectedTags } }",
-      "URL sync: ?tags=react,typescript \u2192 searchParams.get(\"tags\")?.split(\",\")",
+      "URL sync: ?tags=react,typescript → searchParams.get(\"tags\")?.split(\",\")",
       "UI: toggle buttons that add/remove tag from URL params via router.push",
       "Index: CREATE INDEX idx_tags ON posts USING GIN (tags) for fast array queries",
       "Display: tags.map(t => <Badge key={t} onClick={() => toggleTag(t)} active={selectedTags.includes(t)}>{t}</Badge>)"
@@ -10336,7 +10336,7 @@
     ],
     "root_cause": "API key authentication for machine-to-machine or public API access",
     "fix": [
-      "Generate keys: crypto.randomBytes(32).toString(\"hex\") \u2192 store hashed in DB",
+      "Generate keys: crypto.randomBytes(32).toString(\"hex\") → store hashed in DB",
       "Hash before storing: crypto.createHash(\"sha256\").update(apiKey).digest(\"hex\")",
       "Verify: const hashedKey = hash(request.headers.get(\"x-api-key\")); const keyRecord = await prisma.apiKey.findUnique({ where: { hashedKey } })",
       "Include metadata: apiKey model has userId, name, permissions, rateLimit, lastUsedAt, expiresAt",
@@ -10463,7 +10463,7 @@
       "Never use array index as key for dynamic lists (breaks on reorder/insert/delete)",
       "Use stable unique identifier: database ID, UUID, or meaningful unique field",
       "If no ID exists: generate at data creation time (not render time!)",
-      "Keys must be stable across renders: same data \u2192 same key always",
+      "Keys must be stable across renders: same data → same key always",
       "Use key to force remount: <Form key={editingId} /> resets form state when editing different item",
       "Sibling keys must be unique within the same parent (globally unique not required)"
     ],
@@ -10586,7 +10586,7 @@
     "root_cause": "Well-organized components are easier to maintain, test, and reuse",
     "fix": [
       "One component per file (except small helper components used only by parent)",
-      "Structure: imports \u2192 types \u2192 component \u2192 exports (no logic below export)",
+      "Structure: imports → types → component → exports (no logic below export)",
       "Separate concerns: Container (data fetching) vs Presentational (pure UI)",
       "Colocate related files: Button.tsx, Button.test.tsx, Button.stories.tsx in same directory",
       "Keep components under 150 lines - extract sub-components when growing larger",
@@ -10775,7 +10775,7 @@
       "Use useDeferredValue for expensive derived state that can lag behind",
       "Split large lists: virtualize with react-window or tanstack-virtual",
       "Debounce expensive operations triggered by user input",
-      "Pattern: compute on server \u2192 pass result as props (free CPU for client)",
+      "Pattern: compute on server → pass result as props (free CPU for client)",
       "Never: JSON.parse large strings, sort thousands of items, regex on long text in render"
     ],
     "tags": [
@@ -10865,7 +10865,7 @@
     "root_cause": "Detect and handle concurrent edits gracefully when multiple users edit same resource",
     "fix": [
       "Store version/updatedAt with record: include in form as hidden field",
-      "On save: compare version with DB: if (record.version !== submittedVersion) \u2192 conflict",
+      "On save: compare version with DB: if (record.version !== submittedVersion) → conflict",
       "Show conflict UI: \"This was modified by someone else. View changes or overwrite?\"",
       "Show diff: display both versions, let user choose or merge",
       "Prevent: add real-time awareness with Supabase Presence (show who is editing)",
@@ -11120,7 +11120,7 @@
       "Hook: useEffect(() => { const handler = (e: KeyboardEvent) => { if (e.metaKey && e.key === \"k\") { e.preventDefault(); openCommandPalette() } if (e.key === \"Escape\") closeModal() }; window.addEventListener(\"keydown\", handler); return () => window.removeEventListener(\"keydown\", handler) }, [])",
       "Check for input focus: if (document.activeElement?.tagName === \"INPUT\") return (don't trigger during typing)",
       "Common shortcuts: Cmd+K (search), Escape (close), Cmd+Enter (submit form), Cmd+S (save)",
-      "Display hints: show shortcut labels on buttons/menu items: \u2318K, \u2318S, Esc",
+      "Display hints: show shortcut labels on buttons/menu items: ⌘K, ⌘S, Esc",
       "Accessibility: shortcuts must not conflict with screen reader shortcuts",
       "Library alternative: use react-hotkeys-hook for declarative hotkey binding"
     ],
@@ -11336,9 +11336,9 @@
     ],
     "root_cause": "Large data exports should run as background jobs with progress tracking",
     "fix": [
-      "1. User clicks Export \u2192 server action creates job: await inngest.send({ name: \"export/start\", data: { userId, filters, format: \"csv\" } })",
-      "2. Return job ID immediately: return { jobId } \u2192 show progress UI",
-      "3. Inngest function: step.run(\"query-data\") \u2192 step.run(\"generate-file\") \u2192 step.run(\"upload-to-blob\")",
+      "1. User clicks Export → server action creates job: await inngest.send({ name: \"export/start\", data: { userId, filters, format: \"csv\" } })",
+      "2. Return job ID immediately: return { jobId } → show progress UI",
+      "3. Inngest function: step.run(\"query-data\") → step.run(\"generate-file\") → step.run(\"upload-to-blob\")",
       "4. Track progress in Redis: await redis.hset(\"export:\"+jobId, { status: \"processing\", progress: 50 })",
       "5. Client polls progress: useEffect with interval checking /api/export-status?jobId=xxx",
       "6. On complete: store download URL in Redis, show download button to user",

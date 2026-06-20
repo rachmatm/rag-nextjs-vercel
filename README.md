@@ -5,7 +5,7 @@ A structured JSON knowledge base designed for Retrieval-Augmented Generation (RA
 It ships with two ways to consume the data:
 
 1. **MCP Server** (`app/`) — a [Model Context Protocol](https://modelcontextprotocol.io) server deployed as a Vercel serverless function, so any coding agent (Cursor, Claude Code, Windsurf, Cline, VS Code, …) can query the knowledge base over Streamable HTTP.
-2. **Raw JSON** (`knowledge-base.json`) — the underlying dataset, plus `export-to-neon.mjs` to load it into Neon Postgres with `pgvector`.
+2. **Raw JSON** (`knowledge/*.json`) — the underlying dataset, **one file per stack** (e.g. `knowledge/nextjs-vercel.json`, `knowledge/react-native.json`), plus `export-to-neon.mjs` to load them all into Neon Postgres with `pgvector`.
 
 ---
 
@@ -16,21 +16,38 @@ The MCP server exposes the knowledge base (stored in Neon Postgres) through four
 > **Live server:** `https://mcp-dev-knowledge.vercel.app/api/mcp`
 > Landing page: <https://mcp-dev-knowledge.vercel.app>
 
+### Stacks (strictly isolated)
+
+The knowledge base is partitioned by **tech stack**, and the stacks are kept **completely separate** — a search returns results from exactly one stack and never mixes them. Next.js work and React Native work do not bleed into each other.
+
+| `stack` value | Domain |
+|---------------|--------|
+| `nextjs-vercel` | Next.js (App Router) + Vercel — routing, server components, caching, Prisma/Neon, Redis, deployment |
+| `react-native` | React Native for **web, Android, iOS** — Expo/bare, Metro, navigation, native builds, `react-native-web`, EAS |
+
+How isolation is enforced:
+
+- `search_knowledge_base` **requires** a `stack` and always scopes to that single stack. Set `stack: "nextjs-vercel"` or `stack: "react-native"` to match your project — there is no cross-stack search.
+- `find_similar_entries` only returns entries from the **same stack** as the reference entry.
+- `list_knowledge_filters` (called with no `stack`) lists every stack and its entry count so an agent can discover what exists before searching; pass a `stack` to see filters within just that stack.
+
+Adding a future stack is a data-only change (drop a new `knowledge/<stack>.json` file and re-run the export) — no code changes required.
+
 ### Tools
 
 | Tool | Input | Returns |
 |------|-------|---------|
-| `search_knowledge_base` | `query` (required), `type?`, `severity?`, `tags?`, `stack?`, `limit?` | Ranked matching entries with `root_cause` + `fix` steps |
+| `search_knowledge_base` | `query` (required), **`stack` (required)**, `type?`, `severity?`, `tags?`, `limit?` | Ranked matching entries with `root_cause` + `fix` steps |
 | `get_knowledge_entry` | `id` | One full entry |
-| `find_similar_entries` | `id`, `limit?` | Entries sharing tags with the given entry |
+| `find_similar_entries` | `id`, `limit?` | Entries sharing tags with the given entry (same stack only) |
 | `list_knowledge_filters` | `stack?` | Valid filter values (types, severities, frequencies, stacks, top tags) + counts |
 
 ### Input / Output contract
 
-**Input** — every tool takes a small, typed (Zod) argument set. The primary tool only requires a natural-language `query`; all filters are optional and self-describing, so an agent can call it with zero prior knowledge of the dataset:
+**Input** — every tool takes a small, typed (Zod) argument set. `search_knowledge_base` requires a natural-language `query` **and** a `stack` (the stacks are isolated, so you must pick one); the remaining filters are optional and self-describing. Call `list_knowledge_filters` (no `stack`) first to discover the available stacks:
 
 ```json
-{ "name": "search_knowledge_base", "arguments": { "query": "prisma connection pool exhausted on vercel", "limit": 3 } }
+{ "name": "search_knowledge_base", "arguments": { "query": "prisma connection pool exhausted on vercel", "stack": "nextjs-vercel", "limit": 3 } }
 ```
 
 **Output** — results are returned **both** as a JSON text block (consumed by every MCP client today) and as `structuredContent` (for clients that support typed output). Each result is a stable, flat object:
@@ -251,10 +268,20 @@ Each entry follows this structure:
 
 ### Loading into a Vector Store
 
-Load `knowledge-base.json` into your RAG vector store. Each entry's `symptoms` array provides natural-language queries that should match the entry, while `tags` enable filtered retrieval.
+Load the per-stack files from `knowledge/` into your RAG vector store. Each entry's `symptoms` array provides natural-language queries that should match the entry, while `tags` enable filtered retrieval. Keep entries scoped by stack so retrieval never mixes stacks.
 
 ```typescript
-import knowledgeBase from './knowledge-base.json';
+import { readdirSync, readFileSync } from "fs";
+import { join } from "path";
+
+// Load every per-stack file (knowledge/nextjs-vercel.json, knowledge/react-native.json, ...)
+const dir = "./knowledge";
+const knowledgeBase = readdirSync(dir)
+  .filter((f) => f.endsWith(".json"))
+  .flatMap((f) => {
+    const stack = f.replace(/\.json$/, "");
+    return JSON.parse(readFileSync(join(dir, f), "utf-8")).map((e) => ({ ...e, stack: e.stack || stack }));
+  });
 
 // Index each entry with symptoms as searchable text
 for (const entry of knowledgeBase) {
@@ -272,7 +299,8 @@ for (const entry of knowledgeBase) {
       severity: entry.severity,
       frequency: entry.frequency,
       tags: entry.tags,
-      version: entry.version
+      version: entry.version,
+      stack: entry.stack
     },
     document: entry
   });
