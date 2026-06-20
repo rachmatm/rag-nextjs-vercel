@@ -1,20 +1,44 @@
 {
   "name": "rag-nextjs-vercel",
-  "version": "1.0.0",
-  "description": "A structured JSON knowledge base designed for Retrieval-Augmented Generation (RAG) systems, covering common issues, patterns, and solutions for **Next.js applications hosted on Vercel**.",
-  "main": "index.js",
+  "version": "2.0.0",
+  "description": "A structured RAG knowledge base for Next.js applications hosted on Vercel, served over the Model Context Protocol (MCP) from a Vercel serverless function backed by Neon + pgvector.",
+  "private": true,
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "export:neon": "node export-to-neon.mjs"
   },
   "repository": {
     "type": "git",
     "url": "https://us-east-1.gateway.connections.autonomous-agents.kiro.dev/rachmatm/rag-nextjs-vercel.git"
   },
-  "keywords": [],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "rag",
+    "nextjs",
+    "vercel",
+    "neon",
+    "pgvector"
+  ],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
-    "@neondatabase/serverless": "^1.1.0"
+    "@modelcontextprotocol/sdk": "1.26.0",
+    "@neondatabase/serverless": "^1.1.0",
+    "mcp-handler": "^1.0.2",
+    "next": "^15.5.4",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "typescript": "^5.7.0"
   }
 }
