@@ -6724,5 +6724,2642 @@
     ],
     "version": "react-native@0.74+",
     "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "infinite scroll / load more on FlatList",
+      "need pagination as user scrolls"
+    ],
+    "root_cause": "FlatList exposes onEndReached but firing/duplicate requests must be guarded manually.",
+    "fix": [
+      "Use onEndReached with onEndReachedThreshold={0.5} and a loading ref guard so it doesn't fire repeatedly",
+      "Track a 'fetchingMore' flag and a hasNextPage cursor; bail early when already loading or no more pages",
+      "Render a footer spinner via ListFooterComponent while the next page loads"
+    ],
+    "tags": [
+      "flatlist",
+      "pagination",
+      "lists",
+      "infinite-scroll",
+      "networking"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://reactnative.dev/docs/flatlist#onendreached"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "chat UI where newest messages at bottom",
+      "need inverted scrolling list"
+    ],
+    "root_cause": "Chat lists scroll from the bottom; FlatList supports an inverted prop instead of manual scrollToEnd hacks.",
+    "fix": [
+      "Set inverted on FlatList and reverse your data array so index 0 is the newest message",
+      "Prepend older messages on onEndReached (which is now the top) for history pagination",
+      "Use maintainVisibleContentPosition to avoid jumps when older messages load"
+    ],
+    "tags": [
+      "flatlist",
+      "chat",
+      "lists",
+      "inverted",
+      "ux"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://reactnative.dev/docs/flatlist#inverted"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "performance_case",
+    "symptoms": [
+      "FlatList scroll-to-index throws or is slow",
+      "scrollToIndex out of range error"
+    ],
+    "root_cause": "Without getItemLayout FlatList must measure rows, making scrollToIndex unreliable for offscreen items.",
+    "fix": [
+      "Provide getItemLayout={(d,i)=>({length:ROW,offset:ROW*i,index:i})} for fixed-height rows",
+      "For variable heights, use onScrollToIndexFailed to scrollToOffset then retry after a frame",
+      "Prefer FlashList which handles this more gracefully for dynamic content"
+    ],
+    "tags": [
+      "flatlist",
+      "performance",
+      "scrolltoindex",
+      "lists",
+      "getitemlayout"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://reactnative.dev/docs/flatlist#scrolltoindex"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need sticky section headers in a list",
+      "group list items by section"
+    ],
+    "root_cause": "SectionList provides sectioned data with sticky headers out of the box.",
+    "fix": [
+      "Use SectionList with sections=[{title,data}] and renderSectionHeader",
+      "Set stickySectionHeadersEnabled (default true on iOS, set explicitly on Android)",
+      "For very large sectioned data, consider FlashList's sections support for better perf"
+    ],
+    "tags": [
+      "sectionlist",
+      "lists",
+      "sticky-headers",
+      "ui"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://reactnative.dev/docs/sectionlist"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "list jumps when new items load at top",
+      "scroll position lost on prepend"
+    ],
+    "root_cause": "Prepending data shifts indices so the visible content scrolls unexpectedly.",
+    "fix": [
+      "Set maintainVisibleContentPosition={{minIndexForVisible:0}} on the list",
+      "Keep stable keys via keyExtractor so React reconciles correctly",
+      "On Android verify the prop is supported in your RN version, else compute and restore offset manually"
+    ],
+    "tags": [
+      "flatlist",
+      "scroll",
+      "lists",
+      "maintainvisiblecontentposition",
+      "bug"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "collapsing/parallax header on scroll",
+      "header shrinks as user scrolls"
+    ],
+    "root_cause": "A scroll-driven header needs the scroll offset on the UI thread to stay at 60fps.",
+    "fix": [
+      "Capture scroll with useAnimatedScrollHandler and store offset in a shared value",
+      "Drive header height/opacity with useAnimatedStyle + interpolate(offset,[0,200],[full,collapsed])",
+      "Use Animated.ScrollView/FlatList from reanimated and set scrollEventThrottle={16}"
+    ],
+    "tags": [
+      "reanimated",
+      "animation",
+      "scroll",
+      "parallax",
+      "header"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://docs.swmansion.com/react-native-reanimated/docs/scroll/useAnimatedScrollHandler"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "animate color transitions smoothly",
+      "interpolate between two colors"
+    ],
+    "root_cause": "Color can't be linearly interpolated as a number; Reanimated provides interpolateColor.",
+    "fix": [
+      "Use interpolateColor(progress,[0,1],['#fff','#000']) inside useAnimatedStyle",
+      "Drive progress with withTiming on a shared value",
+      "For theme switches animate backgroundColor and color together for a cohesive transition"
+    ],
+    "tags": [
+      "reanimated",
+      "animation",
+      "color",
+      "interpolatecolor",
+      "theming"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://docs.swmansion.com/react-native-reanimated/docs/utilities/interpolateColor"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "animation keeps running after component unmounts",
+      "shared value updates warn after unmount"
+    ],
+    "root_cause": "Pending withTiming/withRepeat animations continue unless cancelled on cleanup.",
+    "fix": [
+      "Call cancelAnimation(sharedValue) in a useEffect cleanup return",
+      "Avoid setting React state from worklets after unmount; gate with a mounted shared value",
+      "Use runOnJS sparingly and only for genuine JS-side side effects"
+    ],
+    "tags": [
+      "reanimated",
+      "animation",
+      "cleanup",
+      "memory-leak",
+      "bug"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://docs.swmansion.com/react-native-reanimated/docs/core/cancelAnimation"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "derive one animated value from another",
+      "compute animated value reactively"
+    ],
+    "root_cause": "Deriving values manually in render loses the UI-thread benefit; useDerivedValue keeps it on the worklet thread.",
+    "fix": [
+      "Use const y = useDerivedValue(()=> x.value * 2) and consume y in useAnimatedStyle",
+      "Keep derivations pure and free of JS side effects",
+      "Prefer this over chaining useAnimatedStyle for shared intermediate math"
+    ],
+    "tags": [
+      "reanimated",
+      "animation",
+      "usederivedvalue",
+      "performance"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://docs.swmansion.com/react-native-reanimated/docs/core/useDerivedValue"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "spring animation feels too bouncy or too slow",
+      "tune spring physics"
+    ],
+    "root_cause": "withSpring defaults rarely match a desired feel; its config controls damping and stiffness.",
+    "fix": [
+      "Tune withSpring(value,{damping:15,stiffness:150,mass:1}) for snappier or softer motion",
+      "Use overshootClamping:true to prevent overshoot for progress-style animations",
+      "Prefer spring for gesture-driven motion and timing for deterministic UI transitions"
+    ],
+    "tags": [
+      "reanimated",
+      "animation",
+      "spring",
+      "withspring",
+      "ux"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://docs.swmansion.com/react-native-reanimated/docs/animations/withSpring"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "swipe a list row to reveal delete",
+      "swipe-to-delete row"
+    ],
+    "root_cause": "Swipeable rows need a pan gesture plus an action layer revealed underneath.",
+    "fix": [
+      "Use react-native-gesture-handler's Swipeable (or ReanimatedSwipeable) with renderRightActions",
+      "Trigger delete in onSwipeableOpen and animate row height to 0 before removing from data",
+      "Close other open rows by keeping a ref to the active Swipeable"
+    ],
+    "tags": [
+      "gesture-handler",
+      "gestures",
+      "swipe",
+      "lists",
+      "ux"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://docs.swmansion.com/react-native-gesture-handler/docs/components/swipeable"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "combine pan and pinch on the same view",
+      "gestures conflict with each other"
+    ],
+    "root_cause": "Multiple gestures on one view race unless explicitly composed.",
+    "fix": [
+      "Compose with Gesture.Simultaneous(pan,pinch) so both run together",
+      "Use Gesture.Race or Gesture.Exclusive when only one should win",
+      "Wrap the whole tree in a single GestureHandlerRootView at app root"
+    ],
+    "tags": [
+      "gesture-handler",
+      "gestures",
+      "composition",
+      "pinch",
+      "pan"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://docs.swmansion.com/react-native-gesture-handler/docs/gesture-composition"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "tap gesture also triggers parent scroll",
+      "nested touchables interfere"
+    ],
+    "root_cause": "Gesture handlers in a scroll view can both respond unless relations are declared.",
+    "fix": [
+      "Use simultaneousHandlers / requireExternalGestureToFail to coordinate nested handlers",
+      "For simple taps inside scrollables prefer Pressable which integrates with the responder system",
+      "Set activeOffsetX/Y on pan gestures so vertical scroll isn't hijacked by horizontal pans"
+    ],
+    "tags": [
+      "gesture-handler",
+      "gestures",
+      "scrollview",
+      "nested",
+      "bug"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need a side drawer menu",
+      "hamburger navigation drawer"
+    ],
+    "root_cause": "Drawer navigation is a separate navigator in React Navigation.",
+    "fix": [
+      "Install @react-navigation/drawer plus reanimated and gesture-handler, wrap in createDrawerNavigator",
+      "Open programmatically with navigation.dispatch(DrawerActions.openDrawer())",
+      "Use a custom drawerContent component for headers, avatars, and logout"
+    ],
+    "tags": [
+      "react-navigation",
+      "drawer",
+      "navigation",
+      "ui"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://reactnavigation.org/docs/drawer-based-navigation"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "performance_case",
+    "symptoms": [
+      "offscreen tab screens keep re-rendering",
+      "background screens run timers/animations"
+    ],
+    "root_cause": "By default React Navigation keeps inactive screens mounted and rendering.",
+    "fix": [
+      "Set freezeOnBlur:true (needs react-native-screens) so blurred screens stop rendering",
+      "Use detachInactiveScreens for memory-heavy stacks",
+      "Pause timers/video in a useFocusEffect cleanup when the screen blurs"
+    ],
+    "tags": [
+      "react-navigation",
+      "performance",
+      "freezeonblur",
+      "react-native-screens"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://reactnavigation.org/docs/native-stack-navigator/#freezeonblur"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "run code every time a screen is focused",
+      "refetch when returning to a screen"
+    ],
+    "root_cause": "useEffect runs on mount, not on re-focus when the screen stays mounted in a stack.",
+    "fix": [
+      "Use useFocusEffect(useCallback(()=>{ /* run */; return ()=>{ /* cleanup */ } },[]))",
+      "For data refetch prefer useFocusEffect + react-query's refetch, or refetchOnWindowFocus",
+      "Use useIsFocused() when you only need a boolean for conditional rendering"
+    ],
+    "tags": [
+      "react-navigation",
+      "usefocuseffect",
+      "navigation",
+      "lifecycle"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://reactnavigation.org/docs/use-focus-effect"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "large title doesn't collapse on iOS",
+      "want native iOS large title header"
+    ],
+    "root_cause": "Large titles require the native stack and specific header options.",
+    "fix": [
+      "Use @react-navigation/native-stack and set headerLargeTitle:true",
+      "Pair with a ScrollView/FlatList using contentInsetAdjustmentBehavior='automatic' so it collapses",
+      "Set headerLargeTitleShadowVisible:false for a cleaner look"
+    ],
+    "tags": [
+      "react-navigation",
+      "ios",
+      "large-title",
+      "native-stack",
+      "header"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://reactnavigation.org/docs/native-stack-navigator/#headerlargetitle"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "configure deep link paths for nested navigators",
+      "linking config for nested screens"
+    ],
+    "root_cause": "Deep linking to nested screens requires mapping the navigator tree in the linking config.",
+    "fix": [
+      "Define linking={{prefixes,config:{screens:{Home:{screens:{Detail:'detail/:id'}}}}}}",
+      "Pass it to NavigationContainer and test with npx uri-scheme open myapp://detail/42 --ios",
+      "Use getStateFromPath for fully custom URL-to-state mapping"
+    ],
+    "tags": [
+      "react-navigation",
+      "deep-linking",
+      "navigation",
+      "nested",
+      "linking"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://reactnavigation.org/docs/configuring-links"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "atomic state without a global store",
+      "fine-grained reactive state"
+    ],
+    "root_cause": "Jotai models state as atoms so only components reading a given atom re-render.",
+    "fix": [
+      "Define const countAtom = atom(0) and read with const [c,setC]=useAtom(countAtom)",
+      "Derive computed state with atom((get)=>get(countAtom)*2)",
+      "Use atomWithStorage for persisted atoms backed by AsyncStorage/MMKV"
+    ],
+    "tags": [
+      "jotai",
+      "state-management",
+      "atoms",
+      "performance"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://jotai.org/docs/introduction"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "anti_pattern",
+    "symptoms": [
+      "Context value object causes consumers to re-render",
+      "context re-renders despite same data"
+    ],
+    "root_cause": "A new object/array literal passed as Context value changes identity every render.",
+    "fix": [
+      "Memoize the value: const value = useMemo(()=>({a,b}),[a,b]) before passing to Provider",
+      "Split read and write contexts so setters don't re-render readers",
+      "For high-frequency updates use a store (zustand/jotai) instead of Context"
+    ],
+    "tags": [
+      "context",
+      "performance",
+      "re-renders",
+      "usememo",
+      "state"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "persist redux/zustand state across restarts",
+      "state resets when app restarts"
+    ],
+    "root_cause": "In-memory stores lose state on relaunch unless explicitly persisted.",
+    "fix": [
+      "For zustand use persist middleware with createJSONStorage(()=>AsyncStorage) or MMKV",
+      "For redux use redux-persist with a whitelist of slices to avoid persisting volatile data",
+      "Version your persisted state and provide a migrate function for schema changes"
+    ],
+    "tags": [
+      "zustand",
+      "redux",
+      "persistence",
+      "state-management",
+      "storage"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://docs.pmnd.rs/zustand/integrations/persisting-store-data"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "cancel in-flight requests on unmount or navigation",
+      "race conditions between requests"
+    ],
+    "root_cause": "Stale requests resolve after newer ones, causing flicker or wrong data.",
+    "fix": [
+      "Pass an AbortController signal to fetch and call controller.abort() in cleanup",
+      "With react-query cancellation is automatic via the query's signal — forward it to fetch",
+      "Ignore aborted errors (err.name === 'AbortError') rather than surfacing them"
+    ],
+    "tags": [
+      "networking",
+      "abortcontroller",
+      "fetch",
+      "race-condition",
+      "cleanup"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developer.mozilla.org/en-US/docs/Web/API/AbortController"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "retry failed requests with backoff",
+      "transient network failures need retry"
+    ],
+    "root_cause": "Naive retries hammer the server; exponential backoff with jitter is safer.",
+    "fix": [
+      "With react-query set retry:3 and retryDelay:(n)=>Math.min(1000*2**n,30000)",
+      "With axios use axios-retry or an interceptor that retries idempotent calls only",
+      "Do not retry 4xx (except 408/429); respect Retry-After headers on 429"
+    ],
+    "tags": [
+      "networking",
+      "retry",
+      "backoff",
+      "react-query",
+      "resilience"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://tanstack.com/query/latest/docs/framework/react/guides/query-retries"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "attach auth token and refresh on 401",
+      "global request/response handling"
+    ],
+    "root_cause": "Per-call header wiring is error-prone; interceptors centralize auth and refresh.",
+    "fix": [
+      "Add an axios request interceptor that injects the bearer token from secure storage",
+      "Add a response interceptor: on 401 call the refresh endpoint once, update token, replay the request",
+      "Queue concurrent 401s so only one refresh runs; logout if refresh fails"
+    ],
+    "tags": [
+      "networking",
+      "auth",
+      "axios",
+      "interceptors",
+      "token-refresh"
+    ],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": [
+      "https://axios-http.com/docs/interceptors"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "realtime updates over websocket",
+      "need live data push to the app"
+    ],
+    "root_cause": "WebSockets need reconnection and app-state awareness on mobile.",
+    "fix": [
+      "Use a WebSocket (or socket.io-client) and reconnect with backoff on close",
+      "Listen to AppState; reconnect on 'active' and consider closing on 'background' to save battery",
+      "Send periodic heartbeats/pings to detect dead connections on flaky mobile networks"
+    ],
+    "tags": [
+      "networking",
+      "websocket",
+      "realtime",
+      "appstate",
+      "reconnect"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "recipe",
+    "symptoms": [
+      "use GraphQL in a React Native app",
+      "set up Apollo Client"
+    ],
+    "root_cause": "GraphQL clients need caching and link configuration tuned for mobile.",
+    "fix": [
+      "Install @apollo/client and graphql; create an ApolloClient with InMemoryCache",
+      "Add an auth link that sets the Authorization header from secure storage",
+      "Enable cache persistence with apollo3-cache-persist for offline reads"
+    ],
+    "tags": [
+      "graphql",
+      "apollo",
+      "networking",
+      "caching",
+      "data-fetching"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://www.apollographql.com/docs/react/get-started"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "show upload progress for a large file",
+      "no progress feedback during upload"
+    ],
+    "root_cause": "fetch doesn't expose upload progress; use XHR or a library that does.",
+    "fix": [
+      "Use axios with onUploadProgress, or expo-file-system uploadAsync with a progress callback",
+      "Send multipart/form-data with the correct boundary; don't set Content-Type manually for FormData",
+      "Show a determinate progress bar and allow cancel via AbortController/cancel token"
+    ],
+    "tags": [
+      "networking",
+      "upload",
+      "progress",
+      "files",
+      "formdata"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://docs.expo.dev/versions/latest/sdk/filesystem/#filesystemuploadasyncurl-fileuri-options"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "encrypt MMKV storage",
+      "secure local key-value store"
+    ],
+    "root_cause": "MMKV stores plaintext by default; it supports an encryption key for at-rest protection.",
+    "fix": [
+      "Initialize new MMKV({id,encryptionKey}) and keep the key in secure storage (Keychain/Keystore)",
+      "Never hardcode the encryption key in JS; derive or fetch it from SecureStore",
+      "For tokens still prefer SecureStore/Keychain over MMKV even when encrypted"
+    ],
+    "tags": [
+      "mmkv",
+      "storage",
+      "encryption",
+      "security",
+      "persistence"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://github.com/mrousavy/react-native-mmkv"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "recipe",
+    "symptoms": [
+      "migrate from AsyncStorage to MMKV",
+      "AsyncStorage too slow, want to switch"
+    ],
+    "root_cause": "MMKV is synchronous and faster; a one-time migration copies existing keys.",
+    "fix": [
+      "On first launch with MMKV, read all AsyncStorage keys and write them into MMKV, then set a 'migrated' flag",
+      "Replace async getItem/setItem call sites with MMKV's synchronous API",
+      "Keep a fallback read path for a release or two before deleting AsyncStorage data"
+    ],
+    "tags": [
+      "mmkv",
+      "async-storage",
+      "migration",
+      "storage",
+      "performance"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://github.com/mrousavy/react-native-mmkv"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "recipe",
+    "symptoms": [
+      "mock native modules in Jest",
+      "tests fail: NativeModule is null / cannot read property of undefined"
+    ],
+    "root_cause": "Native modules have no implementation in the Jest JS environment and must be mocked.",
+    "fix": [
+      "Add jest.mock for the module, or use the library's provided mock (e.g. jest/setup files)",
+      "For Reanimated add 'react-native-reanimated/mock' and require RN-GH jestSetup in setupFiles",
+      "Mock @react-native-async-storage/async-storage with its official jest mock"
+    ],
+    "tags": [
+      "testing",
+      "jest",
+      "native-modules",
+      "mocking",
+      "unit-tests"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://reactnative.dev/docs/testing-overview#mocking-native-modules"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "recipe",
+    "symptoms": [
+      "test a component that uses navigation",
+      "useNavigation throws in tests"
+    ],
+    "root_cause": "Navigation hooks need a navigation context that tests don't provide by default.",
+    "fix": [
+      "Wrap the component under test in a NavigationContainer with a test navigator",
+      "Or mock useNavigation to return jest.fn() spies for navigate/goBack",
+      "Assert navigation.navigate was called with expected route and params"
+    ],
+    "tags": [
+      "testing",
+      "react-navigation",
+      "jest",
+      "mocking",
+      "unit-tests"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://reactnavigation.org/docs/testing"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "recipe",
+    "symptoms": [
+      "mock fetch/HTTP in component tests",
+      "tests hit the real network"
+    ],
+    "root_cause": "Tests should not make real network calls; intercept at the HTTP layer.",
+    "fix": [
+      "Use MSW (msw/native) to define request handlers and assert against them",
+      "Wrap react-query tests in a QueryClientProvider with retry disabled",
+      "Reset handlers between tests and fail on unhandled requests to catch surprises"
+    ],
+    "tags": [
+      "testing",
+      "msw",
+      "networking",
+      "react-query",
+      "mocking"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://mswjs.io/docs/integrations/react-native"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "Gradle builds are slow on CI and locally",
+      "Android build takes minutes every time"
+    ],
+    "root_cause": "Default Gradle config recompiles too much and runs out of heap.",
+    "fix": [
+      "Enable org.gradle.caching=true and org.gradle.parallel=true in gradle.properties",
+      "Raise heap: org.gradle.jvmargs=-Xmx4g and enable the Gradle build cache on CI",
+      "Use --offline locally when deps are unchanged; persist ~/.gradle on CI"
+    ],
+    "tags": [
+      "android",
+      "gradle",
+      "build",
+      "performance",
+      "ci"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://docs.gradle.org/current/userguide/build_cache.html"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "iOS native compiles are slow",
+      "Xcode rebuilds everything"
+    ],
+    "root_cause": "Without a compiler cache, Pods and native code recompile from scratch.",
+    "fix": [
+      "Enable ccache for iOS builds and configure CC/CXX wrappers in the build settings",
+      "Cache Pods and DerivedData between CI runs keyed on Podfile.lock",
+      "Use EAS build caching or a self-hosted runner with warm caches for big projects"
+    ],
+    "tags": [
+      "ios",
+      "ccache",
+      "build",
+      "performance",
+      "ci"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "EAS update goes to wrong build / no update received",
+      "OTA channel vs runtime version confusion"
+    ],
+    "root_cause": "expo-updates matches updates to builds by runtimeVersion and channel; mismatches mean no update.",
+    "fix": [
+      "Set a runtimeVersion policy (e.g. {policy:'appVersion'}) and keep it consistent across builds",
+      "Map git branches to channels in eas.json; publish with eas update --branch and --channel",
+      "Bump runtimeVersion whenever native code changes so old builds don't pull incompatible JS"
+    ],
+    "tags": [
+      "eas",
+      "expo-updates",
+      "ota",
+      "runtimeversion",
+      "release"
+    ],
+    "severity": "high",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://docs.expo.dev/eas-update/runtime-versions/"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "managing iOS credentials in EAS / CI",
+      "code signing keeps breaking on CI"
+    ],
+    "root_cause": "Manual provisioning profiles drift; EAS or fastlane match centralize credentials.",
+    "fix": [
+      "Let EAS manage credentials (eas credentials) so profiles/certs are stored and rotated server-side",
+      "For bare/fastlane workflows use 'match' to store signing assets in an encrypted git repo",
+      "Never commit .p12/.mobileprovision to the repo; use EAS secrets or CI secret storage"
+    ],
+    "tags": [
+      "ios",
+      "code-signing",
+      "eas",
+      "fastlane",
+      "ci"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://docs.expo.dev/app-signing/app-credentials/"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "dynamic app config per environment",
+      "different app name/icon/API per build"
+    ],
+    "root_cause": "Static app.json can't vary by environment; app.config.ts can read env vars.",
+    "fix": [
+      "Rename app.json to app.config.ts and export a function reading process.env",
+      "Switch name, bundle id suffix, icon, and extra.apiUrl per APP_ENV",
+      "Read values at runtime via Constants.expoConfig.extra"
+    ],
+    "tags": [
+      "expo",
+      "app-config",
+      "env",
+      "configuration",
+      "build-profiles"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://docs.expo.dev/workflow/configuration/"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "app crashes on Android 15 devices only",
+      "native libraries fail to load on Android 15"
+    ],
+    "root_cause": "Android 15 requires 16KB memory page size support; older native libs built for 4KB can fail.",
+    "fix": [
+      "Update to RN/Expo SDK versions that ship 16KB-aligned native libraries",
+      "Rebuild third-party native deps against the latest NDK that supports 16KB pages",
+      "Test on an Android 15 device/emulator image configured for 16KB pages"
+    ],
+    "tags": [
+      "android",
+      "android-15",
+      "16kb-pages",
+      "ndk",
+      "crash"
+    ],
+    "severity": "high",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developer.android.com/guide/practices/page-sizes"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "release build crashes with ClassNotFound after enabling ProGuard",
+      "minified release strips needed classes"
+    ],
+    "root_cause": "R8/ProGuard removes classes referenced only via reflection unless keep rules are present.",
+    "fix": [
+      "Add -keep rules in proguard-rules.pro for libraries that use reflection",
+      "Check each native library's docs for required ProGuard/R8 rules",
+      "Reproduce with a release build locally (assembleRelease) before shipping"
+    ],
+    "tags": [
+      "android",
+      "proguard",
+      "r8",
+      "release",
+      "crash"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "DEX 64K method limit / multidex error",
+      "Cannot fit requested classes in a single dex file"
+    ],
+    "root_cause": "Large apps exceed the 64K method reference limit of a single DEX file.",
+    "fix": [
+      "Enable multiDexEnabled true in defaultConfig (usually already on for minSdk 21+)",
+      "Reduce method count by removing unused dependencies and enabling R8 shrinking",
+      "Audit transitive deps with the Gradle dependency report to find bloat"
+    ],
+    "tags": [
+      "android",
+      "multidex",
+      "gradle",
+      "build",
+      "error"
+    ],
+    "severity": "medium",
+    "frequency": "rare",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "need a background mode (audio/location/fetch) on iOS",
+      "background task killed by iOS"
+    ],
+    "root_cause": "iOS only runs background work for declared UIBackgroundModes.",
+    "fix": [
+      "Declare required modes (audio, location, fetch, remote-notification) in Info.plist UIBackgroundModes",
+      "With Expo set ios.infoPlist.UIBackgroundModes in app config",
+      "Respect iOS limits — background fetch is opportunistic, not guaranteed on a schedule"
+    ],
+    "tags": [
+      "ios",
+      "background-modes",
+      "info-plist",
+      "background",
+      "permissions"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developer.apple.com/documentation/bundleresources/information_property_list/uibackgroundmodes"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "push registration fails on iOS / no device token",
+      "aps-environment entitlement missing"
+    ],
+    "root_cause": "APNs registration requires the Push Notifications capability and entitlement.",
+    "fix": [
+      "Add the Push Notifications capability in Xcode (adds aps-environment entitlement)",
+      "With EAS this is configured automatically when you set up a push key",
+      "Verify entitlement matches build type: 'development' vs 'production' APNs environment"
+    ],
+    "tags": [
+      "ios",
+      "push-notifications",
+      "apns",
+      "entitlements",
+      "config"
+    ],
+    "severity": "high",
+    "frequency": "occasional",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "responsive layout reacting to window resize on web",
+      "Dimensions value stale after resize"
+    ],
+    "root_cause": "Dimensions.get is a snapshot; useWindowDimensions subscribes to changes (important on web/tablet).",
+    "fix": [
+      "Use const {width,height} = useWindowDimensions() instead of Dimensions.get('window')",
+      "Branch layout on width breakpoints for phone/tablet/desktop web",
+      "Avoid storing dimensions in state manually — the hook re-renders on change"
+    ],
+    "tags": [
+      "web",
+      "responsive",
+      "usewindowdimensions",
+      "layout",
+      "react-native-web"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://reactnative.dev/docs/usewindowdimensions"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "no visible focus ring for keyboard users on web",
+      "tab navigation has no focus indicator"
+    ],
+    "root_cause": "react-native-web strips default outlines; keyboard accessibility needs an explicit focus style.",
+    "fix": [
+      "Add focus styles via the focusable/{outline} on web using Platform-specific style or :focus-visible CSS",
+      "Use accessibilityRole and ensure interactive elements are reachable via Tab",
+      "Test the whole flow with only the keyboard before shipping web"
+    ],
+    "tags": [
+      "web",
+      "accessibility",
+      "focus",
+      "react-native-web",
+      "keyboard"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "screen reader announces unhelpful labels",
+      "buttons read as 'button' with no context"
+    ],
+    "root_cause": "Without labels/hints assistive tech reads raw content or nothing useful.",
+    "fix": [
+      "Set accessibilityLabel for what it is and accessibilityHint for what happens on activation",
+      "Use accessibilityRole='button'/'header'/'image' so gestures and announcements match",
+      "Group related elements with accessible + accessibilityLabel on the parent"
+    ],
+    "tags": [
+      "accessibility",
+      "a11y",
+      "screen-reader",
+      "labels",
+      "ux"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://reactnative.dev/docs/accessibility"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "touch targets too small to tap reliably",
+      "users miss small buttons"
+    ],
+    "root_cause": "Below ~44pt touch targets fail accessibility and frustrate users.",
+    "fix": [
+      "Ensure interactive elements are at least 44x44pt (iOS) / 48x48dp (Android)",
+      "Use hitSlop to enlarge the tappable area without changing visual size",
+      "Add spacing between adjacent targets to prevent mis-taps"
+    ],
+    "tags": [
+      "accessibility",
+      "touch-target",
+      "hitslop",
+      "ux",
+      "ios"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developer.apple.com/design/human-interface-guidelines/accessibility"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "respect reduce-motion accessibility setting",
+      "animations should be muted for some users"
+    ],
+    "root_cause": "Users who enable Reduce Motion expect fewer/disabled animations.",
+    "fix": [
+      "Read AccessibilityInfo.isReduceMotionEnabled() and subscribe to reduceMotionChanged",
+      "Skip or shorten non-essential animations when enabled",
+      "Provide crossfades instead of large motion when reduce-motion is on"
+    ],
+    "tags": [
+      "accessibility",
+      "reduce-motion",
+      "animation",
+      "a11y",
+      "ux"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://reactnative.dev/docs/accessibilityinfo"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "error",
+    "symptoms": [
+      "Unable to resolve module @babel/runtime/helpers/...",
+      "missing @babel/runtime after upgrade"
+    ],
+    "root_cause": "A dependency expects @babel/runtime but it isn't hoisted/installed.",
+    "fix": [
+      "Install it: npm i @babel/runtime (or yarn add)",
+      "Clear caches: rm -rf node_modules, reinstall, then start with --reset-cache",
+      "In monorepos ensure it's hoisted or add it to the app package explicitly"
+    ],
+    "tags": [
+      "metro",
+      "babel",
+      "module-resolution",
+      "error",
+      "dependencies"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "error",
+    "symptoms": [
+      "requireNativeComponent: 'RNSVGSvgView' was not found",
+      "native view not registered"
+    ],
+    "root_cause": "A native view component's autolinking/pod install didn't complete for the current build.",
+    "fix": [
+      "Reinstall pods (cd ios && pod install) and rebuild the native app, not just Metro",
+      "For Expo, rebuild a dev client or use a managed build that includes the module",
+      "Confirm the library supports your architecture (old vs New Architecture)"
+    ],
+    "tags": [
+      "error",
+      "native-modules",
+      "autolinking",
+      "svg",
+      "ios"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "error",
+    "symptoms": [
+      "Unmatched Route / 404 in expo-router",
+      "navigating to a screen shows 'Unmatched Route'"
+    ],
+    "root_cause": "expo-router couldn't map the URL/path to a file in the app directory.",
+    "fix": [
+      "Verify the file exists under app/ with the exact route name and casing",
+      "Define a +not-found.tsx route to gracefully handle bad links",
+      "Check dynamic segment syntax [id].tsx and that params are passed correctly"
+    ],
+    "tags": [
+      "expo-router",
+      "routing",
+      "navigation",
+      "error",
+      "not-found"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://docs.expo.dev/router/error-handling/"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "error",
+    "symptoms": [
+      "TypeError: Cannot read property 'getConstants' of null",
+      "TurboModule returns null at startup"
+    ],
+    "root_cause": "A native module isn't linked into the running binary (common after adding a dep without rebuilding).",
+    "fix": [
+      "Rebuild the native app (not just reload JS) after adding any native dependency",
+      "Run pod install for iOS; verify autolinking picked up the package on Android",
+      "If using Expo Go, the module likely needs a dev client / prebuild"
+    ],
+    "tags": [
+      "error",
+      "native-modules",
+      "turbomodules",
+      "autolinking",
+      "crash"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "recipe",
+    "symptoms": [
+      "compress/resize an image before upload",
+      "uploads are too large and slow"
+    ],
+    "root_cause": "Camera/gallery images are huge; resize and re-encode before sending.",
+    "fix": [
+      "Use expo-image-manipulator to resize and set compress quality before upload",
+      "Strip unnecessary EXIF and convert to JPEG/WebP to cut size",
+      "Cap the longest edge (e.g. 1080px) for typical avatar/photo uploads"
+    ],
+    "tags": [
+      "media",
+      "image",
+      "compression",
+      "expo-image-manipulator",
+      "upload"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://docs.expo.dev/versions/latest/sdk/imagemanipulator/"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "generate a thumbnail from a video",
+      "need a preview frame for a video"
+    ],
+    "root_cause": "Video previews need a still extracted from a frame.",
+    "fix": [
+      "Use expo-video-thumbnails getThumbnailAsync(uri,{time}) to extract a frame",
+      "Cache thumbnails by video id to avoid regenerating on every render",
+      "Show a play overlay over the thumbnail and load the player on tap"
+    ],
+    "tags": [
+      "media",
+      "video",
+      "thumbnail",
+      "expo",
+      "performance"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://docs.expo.dev/versions/latest/sdk/video-thumbnails/"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "audio stops when app goes to background",
+      "background audio playback not working"
+    ],
+    "root_cause": "Background audio requires explicit audio-mode and background mode configuration.",
+    "fix": [
+      "Set the audio mode to stay active in background (staysActiveInBackground) with expo-av/expo-audio",
+      "Declare the iOS 'audio' UIBackgroundMode and Android foreground service as needed",
+      "Provide lock-screen controls/metadata for a proper background audio experience"
+    ],
+    "tags": [
+      "media",
+      "audio",
+      "background",
+      "expo-av",
+      "ios"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://docs.expo.dev/versions/latest/sdk/audio-av/"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "schedule a local reminder notification",
+      "notify the user at a future time without a server"
+    ],
+    "root_cause": "Local notifications don't need a push server and fire on-device.",
+    "fix": [
+      "Request permission, then Notifications.scheduleNotificationAsync({content,trigger})",
+      "Use a date or seconds/repeats trigger; cancel by identifier when no longer needed",
+      "On Android 13+ also request the POST_NOTIFICATIONS runtime permission"
+    ],
+    "tags": [
+      "push-notifications",
+      "local-notifications",
+      "expo-notifications",
+      "scheduling"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://docs.expo.dev/versions/latest/sdk/notifications/"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "add action buttons to a notification",
+      "interactive notification with reply/accept"
+    ],
+    "root_cause": "Actionable notifications use notification categories with predefined actions.",
+    "fix": [
+      "Define a category with setNotificationCategoryAsync(id,[{identifier,buttonTitle}])",
+      "Attach categoryIdentifier to the notification content",
+      "Handle the chosen action in addNotificationResponseReceivedListener"
+    ],
+    "tags": [
+      "push-notifications",
+      "categories",
+      "actions",
+      "expo-notifications",
+      "ux"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://docs.expo.dev/versions/latest/sdk/notifications/#interactive-notifications"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "app badge count wrong or not clearing",
+      "iOS icon badge stuck"
+    ],
+    "root_cause": "Badge count must be managed explicitly; it doesn't auto-clear.",
+    "fix": [
+      "Set with Notifications.setBadgeCountAsync(n); clear with 0 when the user reads content",
+      "On Android badge behavior depends on the launcher and channel settings",
+      "Sync badge to unread count on app foreground via AppState listener"
+    ],
+    "tags": [
+      "push-notifications",
+      "badge",
+      "ios",
+      "expo-notifications",
+      "bug"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "fit map to show all markers",
+      "map doesn't zoom to include all pins"
+    ],
+    "root_cause": "The camera must be told which region/coordinates to encompass.",
+    "fix": [
+      "Call mapRef.fitToCoordinates(coords,{edgePadding,animated:true}) after markers render",
+      "Or compute a region from min/max lat/lng with padding and animateToRegion",
+      "Debounce fitting until markers/data have settled to avoid jitter"
+    ],
+    "tags": [
+      "maps",
+      "react-native-maps",
+      "camera",
+      "markers",
+      "ux"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://github.com/react-native-maps/react-native-maps"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "draw a route/polyline on the map",
+      "show directions between two points"
+    ],
+    "root_cause": "Routes are drawn as polylines from an ordered list of coordinates.",
+    "fix": [
+      "Fetch route geometry from a directions API (Google/Mapbox) and decode to coordinates",
+      "Render <Polyline coordinates={coords} strokeWidth={4} />",
+      "Cache the decoded polyline and fitToCoordinates so the whole route is visible"
+    ],
+    "tags": [
+      "maps",
+      "polyline",
+      "directions",
+      "react-native-maps",
+      "networking"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "prevent screenshots/screen recording of sensitive screens",
+      "hide content in app switcher"
+    ],
+    "root_cause": "Sensitive screens (banking, 2FA) should block capture.",
+    "fix": [
+      "On Android set FLAG_SECURE via a native module like react-native-screenshot-prevent or expo plugin",
+      "On iOS blur the window in applicationWillResignActive / via a privacy overlay screen",
+      "Apply only to sensitive screens to avoid breaking legitimate screenshots elsewhere"
+    ],
+    "tags": [
+      "security",
+      "flag-secure",
+      "screenshot",
+      "privacy",
+      "android"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "don't leak secrets in the JS bundle",
+      "API keys visible after decompiling the app"
+    ],
+    "root_cause": "Anything shipped in JS or native is extractable; client secrets aren't truly secret.",
+    "fix": [
+      "Keep real secrets server-side; have the app call your backend which holds the keys",
+      "Use restricted/public client keys (e.g. scoped Firebase/Maps keys) with platform + referrer restrictions",
+      "Rotate keys and monitor usage; never commit secrets to the repo"
+    ],
+    "tags": [
+      "security",
+      "secrets",
+      "api-keys",
+      "architecture",
+      "best-practice"
+    ],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "Fast Refresh stopped working",
+      "edits don't reflect without full reload"
+    ],
+    "root_cause": "Fast Refresh breaks on syntax errors, certain HOCs, or non-component exports.",
+    "fix": [
+      "Fix any red-screen syntax error first — Fast Refresh resumes after a clean parse",
+      "Ensure files export React components as default/named components, not anonymous wrappers",
+      "Toggle Fast Refresh off/on from the dev menu, or reload once to recover"
+    ],
+    "tags": [
+      "debugging",
+      "fast-refresh",
+      "metro",
+      "devx",
+      "tooling"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://reactnative.dev/docs/fast-refresh"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "debug with React Native DevTools",
+      "inspect components and network in new RN"
+    ],
+    "root_cause": "Recent RN ships React Native DevTools (Hermes-based) replacing the old debugger and Flipper.",
+    "fix": [
+      "Press 'j' in the Metro terminal (or use the dev menu) to open React Native DevTools",
+      "Use the Components and Profiler tabs; set breakpoints in the Sources tab",
+      "Ensure Hermes is enabled, which it is by default in current RN/Expo"
+    ],
+    "tags": [
+      "debugging",
+      "devtools",
+      "hermes",
+      "tooling",
+      "devx"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://reactnative.dev/docs/react-native-devtools"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "pluralize and format numbers/dates per locale",
+      "translations don't handle plurals"
+    ],
+    "root_cause": "Hardcoded strings break for plurals and locale-specific formatting.",
+    "fix": [
+      "Use i18next with ICU/plural keys (item_one/item_other) and t('item',{count})",
+      "Format numbers/dates/currency with Intl, enabling the Hermes Intl variant",
+      "Load the device locale from expo-localization and persist user overrides"
+    ],
+    "tags": [
+      "i18n",
+      "localization",
+      "plurals",
+      "intl",
+      "i18next"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://www.i18next.com/"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "dismiss keyboard when tapping outside an input",
+      "keyboard stays open over content"
+    ],
+    "root_cause": "Taps outside inputs don't dismiss the keyboard by default.",
+    "fix": [
+      "Wrap the screen in a Pressable/TouchableWithoutFeedback calling Keyboard.dismiss()",
+      "For scrollable forms set keyboardShouldPersistTaps='handled' so buttons still work",
+      "Consider react-native-keyboard-controller for richer keyboard handling"
+    ],
+    "tags": [
+      "keyboard",
+      "ux",
+      "forms",
+      "dismiss",
+      "ios"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://reactnative.dev/docs/keyboard"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "focus the next input on submit",
+      "return key should move to next field"
+    ],
+    "root_cause": "Multi-field forms feel clunky if return doesn't advance focus.",
+    "fix": [
+      "Keep refs to each TextInput; set returnKeyType='next' and onSubmitEditing to focus the next ref",
+      "Use blurOnSubmit={false} on intermediate fields to avoid keyboard flicker",
+      "Set returnKeyType='done' and submit on the last field"
+    ],
+    "tags": [
+      "forms",
+      "textinput",
+      "keyboard",
+      "focus",
+      "ux"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "toggle password visibility",
+      "show/hide secure text entry"
+    ],
+    "root_cause": "secureTextEntry hides input; a visibility toggle improves usability.",
+    "fix": [
+      "Keep a 'hidden' boolean and bind secureTextEntry={hidden}; toggle with an eye icon",
+      "On Android secureTextEntry can disable suggestions; set autoComplete/textContentType appropriately",
+      "Use textContentType='password'/'newPassword' to enable iOS strong password autofill"
+    ],
+    "tags": [
+      "forms",
+      "textinput",
+      "password",
+      "secure-text",
+      "ux"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "prompt the user to rate the app",
+      "ask for an App Store/Play review"
+    ],
+    "root_cause": "Native review prompts must use the official in-app review APIs and respect quotas.",
+    "fix": [
+      "Use expo-store-review (StoreReview.requestReview()) which wraps SKStoreReviewController / Play In-App Review",
+      "Only prompt after a positive moment; the OS rate-limits how often it actually shows",
+      "Never gate features behind a review or prompt repeatedly"
+    ],
+    "tags": [
+      "ux",
+      "reviews",
+      "store-review",
+      "ios",
+      "android"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://docs.expo.dev/versions/latest/sdk/storereview/"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "open the OS app settings screen",
+      "deep link user to enable a permission"
+    ],
+    "root_cause": "When a permission is permanently denied, you can only redirect to Settings.",
+    "fix": [
+      "Call Linking.openSettings() to send the user to the app's settings page",
+      "Detect permanently-denied state (canAskAgain:false) and show a 'Open Settings' CTA",
+      "Re-check the permission on AppState 'active' when they return"
+    ],
+    "tags": [
+      "permissions",
+      "linking",
+      "settings",
+      "ux",
+      "ios"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://reactnative.dev/docs/linking#opensettings"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "scan a QR code / barcode",
+      "need an in-app QR scanner"
+    ],
+    "root_cause": "Scanning needs the camera plus a barcode scanner integration.",
+    "fix": [
+      "Use expo-camera's onBarcodeScanned with barcodeScannerSettings for the types you accept",
+      "Debounce scans so one code isn't handled many times per second",
+      "Request camera permission first and show a framing overlay for UX"
+    ],
+    "tags": [
+      "camera",
+      "qr-code",
+      "barcode",
+      "expo-camera",
+      "permissions"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://docs.expo.dev/versions/latest/sdk/camera/"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "read clipboard contents / paste handling",
+      "get text the user copied"
+    ],
+    "root_cause": "Clipboard access is async and gated on newer OS versions.",
+    "fix": [
+      "Use expo-clipboard getStringAsync()/setStringAsync(); never poll the clipboard",
+      "iOS shows a paste notification — only read on explicit user paste action",
+      "Avoid storing sensitive data on the clipboard; clear it after use"
+    ],
+    "tags": [
+      "clipboard",
+      "expo-clipboard",
+      "ux",
+      "privacy",
+      "ios"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://docs.expo.dev/versions/latest/sdk/clipboard/"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "force-update prompt when a new version ships",
+      "block old app versions"
+    ],
+    "root_cause": "Old clients can break against new APIs; a version gate nudges or forces updates.",
+    "fix": [
+      "Fetch a minimum supported version from your backend/remote config and compare to the installed version",
+      "Show a soft prompt (dismissible) or hard gate (blocking) with a link to the store",
+      "For JS-only fixes prefer EAS Update instead of forcing a store update"
+    ],
+    "tags": [
+      "release",
+      "force-update",
+      "versioning",
+      "remote-config",
+      "ux"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "recipe",
+    "symptoms": [
+      "add in-app purchases / subscriptions",
+      "need to sell subscriptions in the app"
+    ],
+    "root_cause": "Store billing is complex (receipts, restore, entitlements); a wrapper simplifies it.",
+    "fix": [
+      "Use RevenueCat (react-native-purchases) to handle products, purchases, restore, and entitlements",
+      "Configure products in App Store Connect and Play Console; test with sandbox/license testers",
+      "Gate features on entitlement state from the SDK, and implement Restore Purchases (required by Apple)"
+    ],
+    "tags": [
+      "iap",
+      "subscriptions",
+      "revenuecat",
+      "billing",
+      "ios"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://www.revenuecat.com/docs/getting-started/installation/reactnative"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "performance_case",
+    "symptoms": [
+      "FlatList memory grows / janky with very long lists",
+      "scrolling huge lists stutters"
+    ],
+    "root_cause": "Default windowing keeps too many rows mounted for very long lists.",
+    "fix": [
+      "Tune windowSize, maxToRenderPerBatch, initialNumToRender, and updateCellsBatchingPeriod",
+      "Enable removeClippedSubviews on Android for long lists of simple rows",
+      "If tuning isn't enough, switch to FlashList which recycles views"
+    ],
+    "tags": [
+      "flatlist",
+      "performance",
+      "windowing",
+      "lists",
+      "memory"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://reactnative.dev/docs/optimizing-flatlist-configuration"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "recipe",
+    "symptoms": [
+      "find what's causing extra re-renders",
+      "components render more than expected"
+    ],
+    "root_cause": "Re-render sources are hard to spot without instrumentation.",
+    "fix": [
+      "Add why-did-you-render in dev to log avoidable re-renders with the changed props",
+      "Use the React DevTools Profiler to see render counts and durations",
+      "Fix by memoizing props/callbacks and splitting context, not by over-using React.memo blindly"
+    ],
+    "tags": [
+      "performance",
+      "re-renders",
+      "profiling",
+      "why-did-you-render",
+      "react"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://github.com/welldone-software/why-did-you-render"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "performance_case",
+    "symptoms": [
+      "images use too much memory and crash on low-end devices",
+      "OutOfMemory loading many images"
+    ],
+    "root_cause": "Decoding full-resolution images for small views wastes huge amounts of memory.",
+    "fix": [
+      "Request appropriately sized images from the server (or use a CDN with resizing params)",
+      "Use expo-image with proper sizing and let it downsample; set recyclingKey in lists",
+      "Avoid resizeMode tricks on oversized sources — the full bitmap is still decoded"
+    ],
+    "tags": [
+      "performance",
+      "images",
+      "memory",
+      "expo-image",
+      "android"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "timers/intervals keep running in background and drain battery",
+      "setInterval continues when backgrounded"
+    ],
+    "root_cause": "JS timers don't auto-pause when the app backgrounds.",
+    "fix": [
+      "Subscribe to AppState and clear intervals on 'background', restart on 'active'",
+      "Prefer server timestamps over client counters so you can recompute on resume",
+      "For periodic background work use a real background task API, not setInterval"
+    ],
+    "tags": [
+      "appstate",
+      "lifecycle",
+      "timers",
+      "battery",
+      "background"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://reactnative.dev/docs/appstate"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "expo-doctor reports incompatible dependency versions",
+      "package versions don't match SDK"
+    ],
+    "root_cause": "Mismatched native module versions cause subtle runtime/build failures.",
+    "fix": [
+      "Run npx expo install to pin packages to versions compatible with your SDK",
+      "Run npx expo-doctor and resolve each reported mismatch",
+      "Avoid manual npm install of native packages — prefer expo install for them"
+    ],
+    "tags": [
+      "expo",
+      "dependencies",
+      "expo-doctor",
+      "compatibility",
+      "setup"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://docs.expo.dev/more/expo-cli/#expo-install"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "custom native code lost after running prebuild again",
+      "ios/android edits overwritten"
+    ],
+    "root_cause": "Prebuild regenerates native projects from config, discarding manual edits.",
+    "fix": [
+      "Move manual native changes into a config plugin so prebuild reapplies them",
+      "Treat ios/ and android/ as generated when using CNG (continuous native generation)",
+      "If you must hand-edit, stop running prebuild and manage native projects yourself"
+    ],
+    "tags": [
+      "expo",
+      "prebuild",
+      "config-plugin",
+      "native",
+      "anti-pattern"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://docs.expo.dev/config-plugins/introduction/"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "show inline validation errors on blur",
+      "validate fields as the user leaves them"
+    ],
+    "root_cause": "Validating only on submit hurts UX; on-blur validation is friendlier.",
+    "fix": [
+      "With react-hook-form set mode:'onBlur' (or 'onTouched') and render errors[field]?.message",
+      "Use a zod resolver so schema and types stay in sync",
+      "Disable submit until the form isValid and show a summary for screen readers"
+    ],
+    "tags": [
+      "forms",
+      "react-hook-form",
+      "validation",
+      "zod",
+      "ux"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://react-hook-form.com/docs/useform#mode"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "Intl/date formatting differs or BigInt missing on Android",
+      "Hermes lacks some JS features"
+    ],
+    "root_cause": "Hermes ships a subset; some Intl features and APIs need the right build or polyfill.",
+    "fix": [
+      "Enable the Hermes Intl variant or include @formatjs polyfills for needed Intl features",
+      "Test number/date/currency formatting on a real Android device, not just iOS",
+      "Avoid relying on engine-specific behavior; pin a formatting library if precision matters"
+    ],
+    "tags": [
+      "hermes",
+      "intl",
+      "i18n",
+      "android",
+      "bug"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://reactnative.dev/docs/hermes"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "diagnostic_step",
+    "symptoms": [
+      "a library breaks under the New Architecture",
+      "interop/codegen errors after enabling Fabric"
+    ],
+    "root_cause": "Some older libraries aren't New-Arch ready and rely on the interop layer or need updates.",
+    "fix": [
+      "Check the library's New Architecture support status and upgrade to a compatible version",
+      "Verify the interop layer is enabled for legacy modules during migration",
+      "If a key dependency isn't ready, defer enabling the New Architecture until it is"
+    ],
+    "tags": [
+      "new-architecture",
+      "fabric",
+      "turbomodules",
+      "interop",
+      "migration"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://reactnative.dev/architecture/landing-page"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "text/elements blurry on Android",
+      "fractional pixel sizes cause blur"
+    ],
+    "root_cause": "Sub-pixel layout values render blurry on some densities.",
+    "fix": [
+      "Round computed sizes with PixelRatio.roundToNearestPixel for crisp edges",
+      "Avoid fractional widths/heights from percentage math on small elements",
+      "Use whole-number borderWidth and align to the pixel grid for thin lines"
+    ],
+    "tags": [
+      "styling",
+      "android",
+      "pixelratio",
+      "blur",
+      "layout"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://reactnative.dev/docs/pixelratio"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "draw a thin hairline divider",
+      "1px line looks too thick or inconsistent"
+    ],
+    "root_cause": "Device pixel density makes a literal 1 too thick; RN provides a hairline constant.",
+    "fix": [
+      "Use StyleSheet.hairlineWidth for borderWidth/height of dividers",
+      "Pair with a subtle border color from your theme",
+      "For lists, prefer ItemSeparatorComponent over per-row borders"
+    ],
+    "tags": [
+      "styling",
+      "hairline",
+      "divider",
+      "layout",
+      "ui"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://reactnative.dev/docs/stylesheet#hairlinewidth"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "handle the URL that launched the app",
+      "cold-start deep link is missed"
+    ],
+    "root_cause": "Listeners only catch links while running; the initial URL must be read separately.",
+    "fix": [
+      "Read Linking.getInitialURL() on mount for cold starts and addEventListener('url') for warm ones",
+      "With React Navigation/expo-router this is handled by the linking config — prefer that",
+      "Defer navigation until the navigator is ready to avoid dropped initial links"
+    ],
+    "tags": [
+      "deep-linking",
+      "linking",
+      "cold-start",
+      "navigation",
+      "bug"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://reactnative.dev/docs/linking#getinitialurl"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "app silently crashes with no JS error in production",
+      "native crash not captured"
+    ],
+    "root_cause": "JS error boundaries don't catch native crashes; you need native crash reporting.",
+    "fix": [
+      "Integrate Sentry/Crashlytics which capture native + JS crashes and ANRs",
+      "Upload dSYMs (iOS) and mapping/ProGuard files (Android) so stack traces symbolicate",
+      "Add a global ErrorUtils handler for uncaught JS errors and report them"
+    ],
+    "tags": [
+      "crash",
+      "sentry",
+      "crashlytics",
+      "native",
+      "observability"
+    ],
+    "severity": "high",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://docs.sentry.io/platforms/react-native/"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "dates parse differently between iOS and Android",
+      "new Date(string) gives invalid date on Android"
+    ],
+    "root_cause": "Hermes/JSC date parsing of non-ISO strings is inconsistent across platforms.",
+    "fix": [
+      "Always parse explicit ISO 8601 strings, or use date-fns/luxon parsers instead of new Date(string)",
+      "Store and transmit timestamps in UTC ISO format",
+      "Format for display in the user's timezone only at the view layer"
+    ],
+    "tags": [
+      "dates",
+      "timezone",
+      "hermes",
+      "date-fns",
+      "bug"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "Metro fails to resolve symlinked workspace packages",
+      "monorepo imports break in Metro"
+    ],
+    "root_cause": "Metro historically didn't follow symlinks; monorepos need watchFolders and resolution config.",
+    "fix": [
+      "Set watchFolders to the monorepo root and configure nodeModulesPaths in metro.config.js",
+      "Use Expo's createMetroConfig monorepo preset or the @react-native/metro-config helpers",
+      "Ensure a single React/React Native version is hoisted to avoid duplicate copies"
+    ],
+    "tags": [
+      "monorepo",
+      "metro",
+      "symlinks",
+      "build",
+      "setup"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://docs.expo.dev/guides/monorepos/"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "pass data between WebView and React Native",
+      "communicate with web content"
+    ],
+    "root_cause": "WebView and RN are separate contexts; messaging needs the postMessage bridge.",
+    "fix": [
+      "From web call window.ReactNativeWebView.postMessage(JSON.stringify(data))",
+      "On RN handle onMessage and send back with webviewRef.injectJavaScript(...)",
+      "Validate/trust the loaded origin before acting on messages"
+    ],
+    "tags": [
+      "webview",
+      "bridge",
+      "messaging",
+      "ios",
+      "android"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://github.com/react-native-webview/react-native-webview"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "recipe",
+    "symptoms": [
+      "log the user out cleanly",
+      "stale data shown after logout"
+    ],
+    "root_cause": "Logout must clear tokens, caches, and navigation state to avoid leaks between accounts.",
+    "fix": [
+      "Delete tokens from SecureStore and clear react-query cache (queryClient.clear())",
+      "Reset persisted stores and navigate to the auth stack via reset action",
+      "Cancel in-flight requests and unsubscribe websockets/notifications"
+    ],
+    "tags": [
+      "auth",
+      "logout",
+      "security",
+      "react-query",
+      "state"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "headless background task not running on Android",
+      "background work killed by OEM battery saver"
+    ],
+    "root_cause": "Aggressive OEM battery management kills background tasks; constraints and foreground services help.",
+    "fix": [
+      "Use WorkManager-backed background tasks (expo-task-manager / expo-background-task) with realistic intervals",
+      "For ongoing work use a foreground service with a visible notification",
+      "Warn users on OEMs (Xiaomi/Huawei) to disable battery optimization for reliable delivery"
+    ],
+    "tags": [
+      "background",
+      "android",
+      "task-manager",
+      "battery",
+      "config"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://docs.expo.dev/versions/latest/sdk/background-task/"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "absolute-positioned element clipped by parent",
+      "overflow content cut off"
+    ],
+    "root_cause": "overflow defaults differ and Android clips overflowing children more aggressively.",
+    "fix": [
+      "Set overflow:'visible' on the parent when children must escape its bounds",
+      "Be aware Android may still clip across certain boundaries; restructure the tree if needed",
+      "For dropdowns/tooltips render in a Modal or a top-level portal instead of overflowing"
+    ],
+    "tags": [
+      "layout",
+      "overflow",
+      "android",
+      "positioning",
+      "bug"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "render content above everything (portal/overlay)",
+      "tooltip/menu hidden behind siblings"
+    ],
+    "root_cause": "Sibling stacking and clipping make ad-hoc overlays unreliable.",
+    "fix": [
+      "Use a portal (gorhom Portal, or a root-level provider) to render overlays at the app root",
+      "Alternatively use a Modal for true top-most rendering",
+      "Position via measured coordinates from onLayout/measureInWindow"
+    ],
+    "tags": [
+      "layout",
+      "portal",
+      "overlay",
+      "modal",
+      "ui"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "permission prompt denied because asked too early",
+      "users reject permissions on first launch"
+    ],
+    "root_cause": "Cold permission prompts with no context get denied; pre-permission priming helps.",
+    "fix": [
+      "Show an in-app rationale screen explaining the benefit before triggering the OS prompt",
+      "Request the permission at the moment of need, not at startup",
+      "Handle denial gracefully with a path to Settings and reduced functionality"
+    ],
+    "tags": [
+      "permissions",
+      "ux",
+      "priming",
+      "ios",
+      "android"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "performance_case",
+    "symptoms": [
+      "slow cold start / long blank time before first screen",
+      "app takes seconds to become interactive"
+    ],
+    "root_cause": "Heavy synchronous work at startup delays first render.",
+    "fix": [
+      "Defer non-critical init (analytics, prefetch) until after first interaction with InteractionManager",
+      "Lazy-load heavy screens/libraries with React.lazy and dynamic import",
+      "Keep the splash up only until the first screen is ready, then hideAsync()"
+    ],
+    "tags": [
+      "startup",
+      "performance",
+      "splash-screen",
+      "lazy-loading",
+      "interactionmanager"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "anti_pattern",
+    "symptoms": [
+      "putting secrets in EXPO_PUBLIC_ / public env vars",
+      "public env values leaked in bundle"
+    ],
+    "root_cause": "EXPO_PUBLIC_/inlined env vars are embedded in the client bundle and are not secret.",
+    "fix": [
+      "Only put non-sensitive config in public env vars; keep secrets server-side",
+      "Use build-time secrets (EAS secrets) for signing/CI, never for client runtime secrets",
+      "Audit the bundle to confirm no private keys were inlined"
+    ],
+    "tags": [
+      "env",
+      "secrets",
+      "security",
+      "expo",
+      "anti-pattern"
+    ],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": [
+      "https://docs.expo.dev/guides/environment-variables/"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "swipeable bottom tab / segmented control",
+      "need a segmented selector"
+    ],
+    "root_cause": "Native-feeling segmented controls have platform components and libraries.",
+    "fix": [
+      "Use @react-native-segmented-control/segmented-control for an iOS-style control",
+      "Build a custom animated pill selector with Reanimated for full cross-platform control",
+      "Keep selection in state and animate the indicator with a shared value"
+    ],
+    "tags": [
+      "ui",
+      "segmented-control",
+      "tabs",
+      "reanimated",
+      "ux"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "pick a date/time",
+      "need a native date picker"
+    ],
+    "root_cause": "Date pickers are platform-specific native components.",
+    "fix": [
+      "Use @react-native-community/datetimepicker (mode date/time) — on Android show on demand, iOS inline/spinner",
+      "Manage the open/close state yourself on Android; iOS can render inline",
+      "Normalize the selected value to a Date and store as ISO UTC"
+    ],
+    "tags": [
+      "ui",
+      "date-picker",
+      "forms",
+      "ios",
+      "android"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://github.com/react-native-datetimepicker/datetimepicker"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "pull a value from a native picker/dropdown",
+      "need a select dropdown"
+    ],
+    "root_cause": "There's no built-in styled dropdown; use the native picker or a community component.",
+    "fix": [
+      "Use @react-native-picker/picker for a native wheel/dropdown",
+      "For custom styling render options in a bottom sheet or modal list",
+      "Bind selectedValue to state and onValueChange to update"
+    ],
+    "tags": [
+      "ui",
+      "picker",
+      "dropdown",
+      "forms",
+      "ux"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://github.com/react-native-picker/picker"
+    ],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "self-signed/local HTTPS cert rejected on device",
+      "SSL handshake fails against dev server"
+    ],
+    "root_cause": "Devices reject untrusted certs; trust them only in dev, never disable validation in prod.",
+    "fix": [
+      "Install the dev CA/cert on the device/simulator profile for local HTTPS testing",
+      "Use a tunnel (e.g. ngrok) with a valid cert instead of self-signed for device testing",
+      "Never ship code that disables certificate validation"
+    ],
+    "tags": [
+      "networking",
+      "ssl",
+      "https",
+      "dev",
+      "security"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [],
+    "version": "react-native@0.74+",
+    "stack": "react-native"
   }
 ]

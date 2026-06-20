@@ -14,8 +14,12 @@ export const maxDuration = 60;
 const STACK_DESCRIPTION =
   "REQUIRED. Which tech stack to scope this query to. Stacks are STRICTLY ISOLATED — a query " +
   "returns entries from exactly one stack and never mixes them, so you MUST choose one. " +
-  "Valid values: 'nextjs-vercel' (Next.js App Router + Vercel) and 'react-native' " +
-  "(React Native for web/Android/iOS). Set it to match the project you are working on. " +
+  "Valid values: 'nextjs-vercel' (Next.js App Router + Vercel), 'react-native' " +
+  "(React Native for web/Android/iOS), 'google-oauth' (Google OAuth sign-in, scopes, token " +
+  "refresh, redirect URIs), 'google-calendar' (Google Calendar API events, webhooks, sync, " +
+  "recurring events), 'google-sheets' (Google Sheets API read/write, batch ops, " +
+  "Sheets-as-CMS), and 'kubernetes' (on-premise Kubernetes, Node.js, CloudNativePG, KEDA, " +
+  "Cilium, Rook-Ceph, BullMQ, NATS, Vault, LGTM observability). Set it to match the project you are working on. " +
   "If unsure which stacks exist, call list_knowledge_filters (without a stack) FIRST to list them.";
 
 /**
@@ -65,8 +69,13 @@ const handler = createMcpHandler(
         description:
           "Search a curated, multi-stack RAG knowledge base of developer issues, errors, config " +
           "problems, best practices, code patterns and performance cases. " +
-          "Two ISOLATED stacks are available: 'nextjs-vercel' (Next.js App Router + Vercel) and " +
-          "'react-native' (React Native for web/Android/iOS). A query returns results from exactly " +
+          "Five ISOLATED stacks are available: 'nextjs-vercel' (Next.js App Router + Vercel), " +
+          "'react-native' (React Native for web/Android/iOS), 'google-oauth' (Google OAuth " +
+          "sign-in, scopes, token refresh, redirect URIs), 'google-calendar' (Google Calendar " +
+          "API events, webhooks, sync, recurring events), 'google-sheets' (Google Sheets " +
+          "API read/write, batch ops, Sheets-as-CMS), and 'kubernetes' (on-premise Kubernetes, " +
+          "Node.js, CloudNativePG, KEDA, Cilium, Rook-Ceph, BullMQ, NATS, Vault, LGTM). " +
+          "A query returns results from exactly " +
           "one stack — the `stack` argument is REQUIRED, so set it to match your project. If you do " +
           "not know which stacks exist, call list_knowledge_filters first. " +
           "Use this BEFORE attempting a fix when you hit an error, a confusing log, a config question, " +
@@ -196,8 +205,9 @@ const handler = createMcpHandler(
             .optional()
             .describe(
               "Optional here. Omit to list ALL stacks and their entry counts (use this to discover " +
-                "which stacks exist before searching). Pass a stack (e.g. 'nextjs-vercel' or " +
-                "'react-native') to see the filter values available within just that stack."
+                "which stacks exist before searching). Pass a stack (e.g. 'nextjs-vercel', " +
+                "'react-native', 'google-oauth', 'google-calendar', 'google-sheets', 'kubernetes') to see the " +
+                "filter values available within just that stack."
             ),
         },
       },
@@ -218,9 +228,14 @@ const handler = createMcpHandler(
     },
     instructions:
       "Multi-stack knowledge base of developer issues, fixes, best practices and patterns. " +
-      "It currently covers two STRICTLY ISOLATED stacks: 'nextjs-vercel' (Next.js App Router + " +
-      "Vercel) and 'react-native' (React Native for web/Android/iOS). Next.js work and React Native " +
-      "work are kept separate — a search returns results from exactly one stack and never mixes them. " +
+      "It currently covers six STRICTLY ISOLATED stacks: 'nextjs-vercel' (Next.js App Router + " +
+      "Vercel), 'react-native' (React Native for web/Android/iOS), 'google-oauth' (Google OAuth " +
+      "sign-in, scopes, token refresh, redirect URIs), 'google-calendar' (Google Calendar API " +
+      "events, webhooks, sync, recurring events), 'google-sheets' (Google Sheets API " +
+      "read/write, batch ops, Sheets-as-CMS), and 'kubernetes' (on-premise Kubernetes, Node.js, " +
+      "CloudNativePG, KEDA, Cilium, Rook-Ceph, BullMQ, NATS, Vault, LGTM observability). " +
+      "Each stack is kept separate — a search returns " +
+      "results from exactly one stack and never mixes them. " +
       "Workflow: determine the project's stack first (call list_knowledge_filters to see available " +
       "stacks), then call search_knowledge_base with the error text or a short description AND the " +
       "matching `stack` — the `stack` argument is REQUIRED. Use get_knowledge_entry to expand a result and " +

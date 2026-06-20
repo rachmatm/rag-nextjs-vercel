@@ -1,0 +1,1153 @@
+[
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "OAuth consent screen stuck in testing mode",
+      "only test users can sign in",
+      "Error 403: access_denied when non-test user tries to authenticate"
+    ],
+    "root_cause": "Google Cloud projects start with the OAuth consent screen in 'Testing' publishing status, which limits sign-in to explicitly added test users (max 100). Production access requires completing the verification process.",
+    "fix": [
+      "Go to Google Cloud Console → APIs & Services → OAuth consent screen",
+      "Click 'Publish App' to move from Testing to In Production",
+      "If using sensitive or restricted scopes, submit the app for Google verification (may take days/weeks)",
+      "For internal apps on Google Workspace, set user type to 'Internal' to skip verification"
+    ],
+    "tags": [
+      "consent-screen",
+      "publishing-status",
+      "verification",
+      "test-users"
+    ],
+    "severity": "high",
+    "frequency": "very-common",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2/production-readiness",
+      "https://support.google.com/cloud/answer/10311615"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "unsure which OAuth scopes to request",
+      "app requesting too many permissions",
+      "users abandoning consent screen due to broad permissions"
+    ],
+    "root_cause": "Requesting overly broad scopes (e.g., full Drive access when only file read is needed) triggers additional verification requirements and reduces user trust. Google recommends requesting the narrowest scope possible.",
+    "fix": [
+      "Use granular scopes instead of broad ones (e.g., 'https://www.googleapis.com/auth/calendar.events.readonly' instead of 'https://www.googleapis.com/auth/calendar')",
+      "Implement incremental authorization: request base scopes at sign-in, then request additional scopes only when the user triggers a feature that needs them",
+      "Prefer 'sensitive' scopes over 'restricted' scopes where possible to simplify the verification process",
+      "Review the scope list at https://developers.google.com/identity/protocols/oauth2/scopes for the narrowest option"
+    ],
+    "tags": [
+      "scopes",
+      "incremental-auth",
+      "consent-screen",
+      "permissions"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2/scopes",
+      "https://developers.google.com/identity/protocols/oauth2/policies#incremental-auth"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "refresh token is null after first authorization",
+      "only getting access_token but no refresh_token",
+      "refresh_token returned once but never again"
+    ],
+    "root_cause": "Google only returns a refresh_token on the first authorization. Subsequent authorizations (e.g., after revoking and re-granting) will not include a refresh_token unless the authorization request includes 'prompt=consent' or 'access_type=offline' with 'prompt=consent'.",
+    "fix": [
+      "Always include 'access_type=offline' in the authorization URL to request offline access",
+      "Add 'prompt=consent' to force the consent screen and ensure a new refresh_token is issued",
+      "Store the refresh_token securely on first receipt — it will not be returned again without forcing re-consent",
+      "If the refresh_token is lost, revoke the user's grant at https://myaccount.google.com/permissions and re-authorize with prompt=consent"
+    ],
+    "tags": [
+      "token-refresh",
+      "refresh-token",
+      "access-type",
+      "prompt-consent"
+    ],
+    "severity": "high",
+    "frequency": "very-common",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2/web-server#offline",
+      "https://developers.google.com/identity/protocols/oauth2/web-server#creatingclient"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "Token has been expired or revoked error",
+      "invalid_grant error when refreshing token",
+      "refresh token stops working after 7 days"
+    ],
+    "root_cause": "Refresh tokens for apps with 'Testing' publishing status expire after 7 days. Additionally, refresh tokens are revoked if unused for 6 months, if the user changes their password and the token contains Gmail scopes, or if the user revokes access.",
+    "fix": [
+      "Publish the OAuth consent screen to 'In Production' to remove the 7-day expiry for testing apps",
+      "Implement token refresh error handling: catch 'invalid_grant' errors and redirect the user to re-authorize",
+      "Use refresh tokens regularly (within 6 months) to prevent expiry from inactivity",
+      "Monitor the user's grant status and handle revocation gracefully by prompting re-authorization"
+    ],
+    "tags": [
+      "token-refresh",
+      "invalid-grant",
+      "token-expiry",
+      "testing-mode"
+    ],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2#expiration",
+      "https://developers.google.com/identity/protocols/oauth2/web-server#offline"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "how to store OAuth tokens securely",
+      "tokens stored in plaintext in database",
+      "need to persist tokens across server restarts"
+    ],
+    "root_cause": "OAuth tokens (especially refresh tokens) are long-lived credentials that grant access to user data. Storing them in plaintext or in client-side storage creates security risks.",
+    "fix": [
+      "Store refresh tokens server-side in a database, never in client-side storage (localStorage, cookies)",
+      "Encrypt tokens at rest using AES-256 or equivalent; store the encryption key in a secrets manager (e.g., AWS KMS, GCP Secret Manager, HashiCorp Vault)",
+      "Associate stored tokens with the user's account ID so they can be retrieved on subsequent sessions",
+      "Implement a token refresh wrapper: before each API call, check if the access_token is expired, refresh if needed, and update the stored access_token"
+    ],
+    "tags": [
+      "token-persistence",
+      "encryption",
+      "security",
+      "storage"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2/web-server#offline",
+      "https://cloud.google.com/secret-manager/docs"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "redirect_uri_mismatch error",
+      "Error 400: redirect_uri_mismatch",
+      "The redirect URI in the request does not match the ones authorized"
+    ],
+    "root_cause": "The redirect URI sent in the authorization request must exactly match one registered in Google Cloud Console — including scheme (http vs https), trailing slashes, port numbers, and path casing.",
+    "fix": [
+      "In Google Cloud Console → Credentials → OAuth 2.0 Client IDs, ensure the redirect URI matches exactly what your app sends (check https vs http, trailing slash, port)",
+      "For local development, add 'http://localhost:3000/callback' (or your port) as an authorized redirect URI",
+      "For production, add the exact production URL including the full path (e.g., 'https://myapp.com/auth/callback')",
+      "Remember that changes to authorized redirect URIs in the Console can take a few minutes to propagate"
+    ],
+    "tags": [
+      "redirect-uri",
+      "configuration",
+      "mismatch",
+      "debugging"
+    ],
+    "severity": "high",
+    "frequency": "very-common",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2/web-server#uri-validation"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "redirect_uri_mismatch in production but works locally",
+      "OAuth works on localhost but fails after deployment",
+      "callback URL rejected in staging/production environment"
+    ],
+    "root_cause": "The OAuth client in Google Cloud Console only has localhost redirect URIs registered. Each deployment environment (staging, production) needs its own redirect URI added to the authorized list. Alternatively, a separate OAuth client ID per environment avoids URI conflicts.",
+    "fix": [
+      "Add all environment-specific redirect URIs to the OAuth client's authorized redirect URIs list in Google Cloud Console",
+      "Use environment variables to set the redirect URI dynamically: read OAUTH_REDIRECT_URI from the deployment config",
+      "Consider using separate OAuth client IDs for development, staging, and production to cleanly separate configuration",
+      "Verify the final redirect URI your app constructs by logging it during the authorization flow"
+    ],
+    "tags": [
+      "redirect-uri",
+      "deployment",
+      "environment",
+      "configuration"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2/web-server#creatingclient"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "how to set up a Google service account",
+      "need server-to-server authentication without user consent",
+      "when to use service account vs OAuth"
+    ],
+    "root_cause": "Service accounts are used for server-to-server authentication where no user interaction is possible. They are ideal for background jobs, cron tasks, and accessing organization-owned resources. They cannot access user-specific data unless configured with domain-wide delegation.",
+    "fix": [
+      "Create a service account in Google Cloud Console → IAM & Admin → Service Accounts",
+      "Download the JSON key file and store it securely (never commit to version control); set the path in GOOGLE_APPLICATION_CREDENTIALS env var or load the JSON directly",
+      "Use the google-auth-library or equivalent to authenticate: instantiate with the key file and desired scopes",
+      "For accessing user data on Google Workspace, configure domain-wide delegation: authorize the service account's client ID in the Workspace Admin Console with specific scopes, then use impersonation (subject field) when creating credentials"
+    ],
+    "tags": [
+      "service-account",
+      "server-to-server",
+      "domain-wide-delegation",
+      "authentication"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2/service-account",
+      "https://cloud.google.com/iam/docs/service-account-overview"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "access_denied error even with correct scopes",
+      "403 Forbidden when calling Google API after successful OAuth",
+      "token has correct scopes but API returns permission denied"
+    ],
+    "root_cause": "The Google API being called may not be enabled in the Cloud project, the user may not have granted the specific scope (incremental auth partial grant), or the API has additional access controls (e.g., Google Workspace admin restrictions).",
+    "fix": [
+      "Verify the required API is enabled: Google Cloud Console → APIs & Services → Enabled APIs, search for and enable the specific API",
+      "Check the granted scopes in the token response — users can selectively deselect scopes on the consent screen (granular permissions)",
+      "For Workspace APIs, verify the user's organization allows third-party app access (Admin Console → Security → API Controls)",
+      "Decode the access token at https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=TOKEN to verify actual granted scopes"
+    ],
+    "tags": [
+      "permissions",
+      "scopes",
+      "api-enabled",
+      "access-denied"
+    ],
+    "severity": "high",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2/scopes",
+      "https://cloud.google.com/apis/docs/getting-started#enabling_apis"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "consent screen shows 'unverified app' warning",
+      "Google hasn't verified this app warning page",
+      "users cannot proceed past the unverified app screen"
+    ],
+    "root_cause": "Apps requesting sensitive or restricted scopes must be verified by Google. Until verification is complete, users see a warning screen. Apps requesting only non-sensitive scopes or internal Workspace apps do not require verification.",
+    "fix": [
+      "For development/testing, users can click 'Advanced' → 'Go to <app name> (unsafe)' to bypass the warning",
+      "Submit the app for verification: fill in the OAuth consent screen details including privacy policy, homepage, and authorized domains",
+      "If only non-sensitive scopes are needed (e.g., openid, email, profile), switch to those to avoid the verification requirement",
+      "For Google Workspace orgs, set the app to 'Internal' user type to bypass verification entirely"
+    ],
+    "tags": [
+      "consent-screen",
+      "verification",
+      "unverified-app",
+      "publishing-status"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://support.google.com/cloud/answer/7454865",
+      "https://developers.google.com/identity/protocols/oauth2/production-readiness"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "how to do OAuth in a SPA or mobile app without a client secret",
+      "public client cannot keep a secret safe",
+      "should I use PKCE"
+    ],
+    "root_cause": "Public clients (SPAs, mobile, desktop) cannot store a client secret securely. The Authorization Code flow with PKCE (Proof Key for Code Exchange) protects the code exchange without a secret, and replaces the deprecated implicit flow.",
+    "fix": [
+      "Generate a random code_verifier and its SHA-256 code_challenge per authorization request",
+      "Send code_challenge and code_challenge_method=S256 on the authorization request, then code_verifier on the token exchange",
+      "Use a client of type 'Web', 'Android', 'iOS', or 'Desktop' as appropriate; native/mobile clients have no secret",
+      "Prefer PKCE over the deprecated implicit (response_type=token) flow"
+    ],
+    "tags": [
+      "pkce",
+      "public-client",
+      "spa",
+      "mobile",
+      "authorization-code"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2/native-app",
+      "https://datatracker.ietf.org/doc/html/rfc7636"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "how to prevent CSRF in the OAuth redirect",
+      "should I use the state parameter",
+      "attacker can forge the OAuth callback"
+    ],
+    "root_cause": "Without a state parameter, the OAuth redirect is vulnerable to CSRF where an attacker injects their own authorization code. The state value ties the callback back to the originating session.",
+    "fix": [
+      "Generate a cryptographically random state value, store it in the user's session, and include it in the authorization URL",
+      "On callback, verify the returned state exactly matches the stored value before exchanging the code",
+      "Optionally encode the post-login redirect path inside state (signed) to resume the user's flow",
+      "Reject the callback if state is missing or does not match"
+    ],
+    "tags": [
+      "state",
+      "csrf",
+      "security",
+      "redirect"
+    ],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2/web-server#creatingclient"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "how to validate the id_token / ID token",
+      "is it safe to trust the id_token claims directly",
+      "verifying Google JWT signature"
+    ],
+    "root_cause": "An id_token (a JWT) must be cryptographically validated before its claims are trusted. Skipping validation lets a forged token impersonate a user.",
+    "fix": [
+      "Verify the JWT signature against Google's public keys (JWKS) at https://www.googleapis.com/oauth2/v3/certs, respecting the cache headers",
+      "Check iss is 'https://accounts.google.com' or 'accounts.google.com', aud equals your client_id, and exp is in the future",
+      "Use a library (google-auth-library verifyIdToken) rather than hand-rolling validation",
+      "Do not call the tokeninfo endpoint per request for validation in production — validate locally"
+    ],
+    "tags": [
+      "id-token",
+      "jwt",
+      "validation",
+      "openid-connect",
+      "security"
+    ],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/identity/openid-connect/openid-connect#validatinganidtoken"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "replay attack possible on sign-in",
+      "how to use the nonce parameter",
+      "id_token reused across sessions"
+    ],
+    "root_cause": "OpenID Connect uses a nonce to bind an id_token to a specific authentication request, preventing token replay. If you omit or do not verify the nonce, a captured id_token can be replayed.",
+    "fix": [
+      "Generate a random nonce, store it in the session, and pass it on the authorization request",
+      "After validating the id_token, confirm its 'nonce' claim equals the stored nonce",
+      "Use a fresh nonce per authentication attempt and discard it after verification",
+      "Combine nonce (id_token replay) with state (CSRF) — they protect different things"
+    ],
+    "tags": [
+      "nonce",
+      "openid-connect",
+      "replay",
+      "id-token",
+      "security"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/identity/openid-connect/openid-connect#authenticationuriparameters"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "how to revoke a token / sign the user out fully",
+      "user wants to disconnect the app",
+      "programmatically revoke access"
+    ],
+    "root_cause": "Deleting the token from your database does not revoke Google's grant. To fully disconnect, call Google's revocation endpoint, which invalidates both the access and refresh tokens for that grant.",
+    "fix": [
+      "POST to https://oauth2.googleapis.com/revoke with token=<access_or_refresh_token> (application/x-www-form-urlencoded)",
+      "Revoking a refresh token revokes all access tokens derived from it",
+      "Delete your stored tokens after a successful (200) revocation",
+      "Handle the user revoking externally at https://myaccount.google.com/permissions by catching invalid_grant on next refresh"
+    ],
+    "tags": [
+      "revocation",
+      "logout",
+      "disconnect",
+      "refresh-token"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2/web-server#tokenrevoke"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "OAuth on a device with no browser or keyboard",
+      "authenticate a CLI, TV, or IoT device",
+      "limited-input device OAuth flow"
+    ],
+    "root_cause": "Devices that cannot host a browser use the OAuth 2.0 Device Authorization flow: the device shows a code/URL the user enters on a second device, and the device polls for the token.",
+    "fix": [
+      "Request a device_code and user_code from https://oauth2.googleapis.com/device/code with your client_id and scopes",
+      "Display the verification_url and user_code for the user to enter on a phone/computer",
+      "Poll the token endpoint with grant_type=urn:ietf:params:oauth:grant-type:device_code, honoring the returned interval and authorization_pending/slow_down responses",
+      "Use a 'TVs and Limited Input devices' OAuth client type in the Cloud Console"
+    ],
+    "tags": [
+      "device-flow",
+      "limited-input",
+      "cli",
+      "tv",
+      "polling"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2/limited-input-device"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "gapi.auth2 / Google Sign-In JavaScript library no longer works",
+      "old Google Sign-In button stopped functioning",
+      "migrate to Google Identity Services"
+    ],
+    "root_cause": "The legacy Google Sign-In platform library (gapi.auth2) and the old one-tap APIs are deprecated and have been shut down. New integrations must use Google Identity Services (GIS).",
+    "fix": [
+      "Migrate sign-in (authentication) to GIS: load https://accounts.google.com/gsi/client and use google.accounts.id for ID tokens",
+      "Migrate authorization (access tokens / API scopes) to the GIS token model: google.accounts.oauth2.initTokenClient",
+      "Note GIS separates authentication (id_token) from authorization (access_token) into distinct flows",
+      "Remove all apis.google.com/js/platform.js and gapi.auth2 references"
+    ],
+    "tags": [
+      "google-identity-services",
+      "gis",
+      "deprecation",
+      "gapi",
+      "migration"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/identity/gsi/web/guides/migration",
+      "https://developers.google.com/identity/oauth2/web/guides/migration-to-gis"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "how to add a new scope later without re-listing all scopes",
+      "incremental authorization losing previously granted scopes",
+      "include_granted_scopes usage"
+    ],
+    "root_cause": "When requesting an additional scope, set include_granted_scopes=true so the new access token carries previously granted scopes too; otherwise the new token only has the newly requested scope.",
+    "fix": [
+      "Add include_granted_scopes=true to the authorization request when asking for an additional scope",
+      "Request only the new scope(s) at that moment — Google combines them with prior grants",
+      "Re-read the granted scopes from the token response, since users can deny individual scopes (granular consent)",
+      "Persist the union of granted scopes so you know what the app is allowed to do"
+    ],
+    "tags": [
+      "incremental-auth",
+      "include-granted-scopes",
+      "scopes"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2/web-server#incrementalAuth"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "restrict sign-in to a specific Google Workspace domain",
+      "users from other domains can sign in",
+      "how to use the hd parameter"
+    ],
+    "root_cause": "The hd (hosted domain) authorization parameter requests accounts from a specific Workspace domain, but it is only a hint — it must be verified against the id_token's hd claim server-side.",
+    "fix": [
+      "Pass hd=yourdomain.com on the authorization request to bias the account chooser",
+      "After validating the id_token, verify its 'hd' claim equals your expected domain — do not rely on the request parameter alone",
+      "Reject sign-ins whose hd claim is missing or mismatched (consumer @gmail.com accounts have no hd)",
+      "For org-only apps, also consider setting the OAuth consent screen user type to Internal"
+    ],
+    "tags": [
+      "hd",
+      "workspace",
+      "domain-restriction",
+      "hosted-domain",
+      "id-token"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/identity/openid-connect/openid-connect#authenticationuriparameters"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "pre-select or hint which Google account to use",
+      "force re-authentication for a known user",
+      "login_hint usage"
+    ],
+    "root_cause": "The login_hint parameter pre-fills the account (email or sub) on the consent/sign-in screen, smoothing re-authentication for a user you already know.",
+    "fix": [
+      "Pass login_hint=<email or sub> on the authorization request to pre-select the account",
+      "Combine with prompt=none to attempt a silent re-auth and detect if interaction is required",
+      "Use the stored 'sub' claim rather than email when possible, since emails can change",
+      "Fall back to the normal flow if login_hint does not match an active session"
+    ],
+    "tags": [
+      "login-hint",
+      "re-authentication",
+      "ux",
+      "account-chooser"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/identity/openid-connect/openid-connect#authenticationuriparameters"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "users always land on the last-used account, want a chooser",
+      "force the account selection screen",
+      "prompt parameter values"
+    ],
+    "root_cause": "The prompt parameter controls whether Google shows the account chooser and/or consent. Without it, Google may silently reuse an existing session/grant.",
+    "fix": [
+      "Use prompt=select_account to always show the account chooser",
+      "Use prompt=consent to force the consent screen (and re-issue a refresh_token)",
+      "Use prompt=none for silent auth — it errors (interaction_required/login_required) if user interaction is needed",
+      "Values can be combined space-separated, e.g. prompt='select_account consent'"
+    ],
+    "tags": [
+      "prompt",
+      "select-account",
+      "consent",
+      "account-chooser"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/identity/openid-connect/openid-connect#authenticationuriparameters"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "how to exchange the authorization code for tokens",
+      "what to POST to the token endpoint",
+      "code-to-token exchange steps"
+    ],
+    "root_cause": "After the redirect returns a code, you exchange it server-side at the token endpoint for access and refresh tokens. The exchange must use the same redirect_uri and (for confidential clients) the client secret.",
+    "fix": [
+      "POST to https://oauth2.googleapis.com/token with grant_type=authorization_code, code, client_id, client_secret, redirect_uri",
+      "The redirect_uri must exactly match the one used in the authorization request",
+      "For PKCE/public clients, include code_verifier and omit the secret",
+      "Persist the refresh_token from this response — it is typically only returned here on first consent"
+    ],
+    "tags": [
+      "token-exchange",
+      "authorization-code",
+      "token-endpoint",
+      "redirect-uri"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2/web-server#exchange-authorization-code"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "invalid_grant when exchanging the authorization code",
+      "Bad Request 400 invalid_grant on code exchange",
+      "authorization code rejected immediately after callback"
+    ],
+    "root_cause": "On code exchange, invalid_grant usually means the code was already used (codes are single-use), expired (valid only ~10 minutes), or a redirect_uri/client mismatch. Server clock skew can also cause it.",
+    "fix": [
+      "Ensure you exchange each code exactly once — duplicate requests (e.g., React double-render, retries) consume it",
+      "Exchange promptly; codes expire in about 10 minutes",
+      "Confirm redirect_uri and client_id/secret on the exchange match the authorization request",
+      "Sync the server clock via NTP — large skew invalidates the grant"
+    ],
+    "tags": [
+      "invalid-grant",
+      "authorization-code",
+      "single-use",
+      "clock-skew",
+      "400-error"
+    ],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2/web-server#exchange-authorization-code"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "access token stops working after about an hour",
+      "401 Unauthorized mid-session",
+      "how often to refresh the access token"
+    ],
+    "root_cause": "Google access tokens expire after roughly 1 hour (see expires_in). You must refresh them using the refresh token, ideally proactively, and retry the failed call once after refreshing.",
+    "fix": [
+      "Track the expiry (now + expires_in) and refresh before it lapses rather than waiting for a 401",
+      "On a 401 from an API call, refresh the access token once and retry the request a single time",
+      "Use a refresh wrapper/mutex so concurrent requests trigger only one refresh",
+      "Persist the new access_token and expiry after each refresh"
+    ],
+    "tags": [
+      "access-token",
+      "token-expiry",
+      "401",
+      "token-refresh",
+      "expires-in"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2#expiration"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "how to authenticate from CI/CD or AWS without a service account key file",
+      "avoid storing long-lived service account JSON keys",
+      "keyless authentication to Google APIs"
+    ],
+    "root_cause": "Workload Identity Federation lets external workloads (AWS, Azure, GitHub Actions, OIDC providers) impersonate a service account using short-lived tokens, eliminating downloadable service account keys.",
+    "fix": [
+      "Create a Workload Identity Pool and provider that trusts your external identity provider's OIDC/SAML tokens",
+      "Grant the external identity permission to impersonate the target service account",
+      "Use google-auth libraries with the generated credential configuration instead of a key file",
+      "Prefer this over service account JSON keys for any non-GCP CI/CD or cloud workload"
+    ],
+    "tags": [
+      "workload-identity-federation",
+      "keyless",
+      "ci-cd",
+      "service-account",
+      "security"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://cloud.google.com/iam/docs/workload-identity-federation"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "how does authentication work for local development against Google APIs",
+      "Application Default Credentials not found error",
+      "Could not load the default credentials"
+    ],
+    "root_cause": "Google client libraries use Application Default Credentials (ADC): they look for GOOGLE_APPLICATION_CREDENTIALS, then gcloud user credentials, then the attached service account on GCP. Missing all of these causes a 'default credentials' error.",
+    "fix": [
+      "For local dev run 'gcloud auth application-default login' to create user ADC",
+      "Or set GOOGLE_APPLICATION_CREDENTIALS to a service account key file path",
+      "On GCP (Cloud Run, GCE, GKE) the attached service account is used automatically — no key needed",
+      "Set the quota/billing project with 'gcloud auth application-default set-quota-project' if you hit quota project errors"
+    ],
+    "tags": [
+      "adc",
+      "application-default-credentials",
+      "local-development",
+      "gcloud"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://cloud.google.com/docs/authentication/application-default-credentials"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "service account JSON keys are a security risk",
+      "how to avoid downloading service account keys",
+      "rotate or disable service account keys"
+    ],
+    "root_cause": "Long-lived service account keys are a common breach vector. Google recommends avoiding key creation entirely and using short-lived credentials or impersonation instead.",
+    "fix": [
+      "Enforce the org policy constraints/iam.disableServiceAccountKeyCreation to block key downloads",
+      "Use service account impersonation via the IAM Credentials API (generateAccessToken) for short-lived tokens",
+      "If keys are unavoidable, rotate them regularly and store them in a secrets manager, never in source control",
+      "Audit existing keys and delete unused ones in IAM & Admin → Service Accounts → Keys"
+    ],
+    "tags": [
+      "service-account",
+      "key-rotation",
+      "impersonation",
+      "security",
+      "org-policy"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://cloud.google.com/iam/docs/best-practices-for-managing-service-account-keys",
+      "https://cloud.google.com/iam/docs/create-short-lived-credentials-direct"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "how to set up domain-wide delegation for a service account",
+      "service account needs to access all users' data in Workspace",
+      "DWD configuration steps"
+    ],
+    "root_cause": "Domain-wide delegation (DWD) authorizes a service account to impersonate any user in a Google Workspace domain for a fixed set of scopes. It must be enabled by a Workspace super admin.",
+    "fix": [
+      "In Google Cloud, enable DWD on the service account and note its OAuth client ID (numeric)",
+      "In the Workspace Admin Console → Security → API Controls → Domain-wide Delegation, add the client ID with the exact scopes needed",
+      "Scopes are matched exactly — a mismatch causes unauthorized_client at token time",
+      "Only grant the minimum scopes; DWD is powerful and broadly scoped"
+    ],
+    "tags": [
+      "domain-wide-delegation",
+      "service-account",
+      "workspace",
+      "admin-console",
+      "impersonation"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2/service-account#delegatingauthority"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "unauthorized_client when using domain-wide delegation",
+      "Client is unauthorized to retrieve access tokens using this method",
+      "service account impersonation fails"
+    ],
+    "root_cause": "unauthorized_client during DWD means the service account's client ID is not authorized for the requested scope in the Admin Console, or the impersonated subject is invalid.",
+    "fix": [
+      "Verify the service account's numeric client ID is listed in Admin Console → Domain-wide Delegation with every requested scope",
+      "Ensure the 'subject' you impersonate is a real, active user in the Workspace domain",
+      "Confirm scopes match exactly (no extra/missing scopes) between your request and the Admin Console entry",
+      "Allow a few minutes for Admin Console delegation changes to propagate"
+    ],
+    "tags": [
+      "unauthorized-client",
+      "domain-wide-delegation",
+      "impersonation",
+      "subject",
+      "scopes"
+    ],
+    "severity": "high",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2/service-account#error-codes"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "refresh token suddenly stops working for some users",
+      "old refresh tokens get invalidated",
+      "too many refresh tokens issued"
+    ],
+    "root_cause": "Google limits the number of live refresh tokens per user per OAuth client (around 100, historically 50). When the limit is exceeded, the oldest refresh token is silently invalidated.",
+    "fix": [
+      "Reuse a stored refresh token instead of forcing prompt=consent on every login (which mints a new one each time)",
+      "Persist and reuse the refresh token per user; only re-consent when it is actually missing or revoked",
+      "Handle invalid_grant by re-authorizing the affected user",
+      "Avoid issuing many tokens to the same user across many sessions/devices unnecessarily"
+    ],
+    "tags": [
+      "refresh-token",
+      "token-limit",
+      "invalid-grant",
+      "prompt-consent"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2#expiration"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "app verification requires a security assessment",
+      "restricted scopes need CASA",
+      "Gmail/Drive full scopes blocked pending assessment"
+    ],
+    "root_cause": "Apps requesting restricted scopes (e.g., full Gmail or Drive) must pass a Cloud Application Security Assessment (CASA) in addition to OAuth verification, and recertify periodically.",
+    "fix": [
+      "Minimize scopes — drop restricted scopes if a narrower sensitive/non-sensitive scope works to avoid CASA entirely",
+      "Budget time and likely cost for the CASA tier-2 assessment by an authorized third-party assessor",
+      "Maintain a privacy policy, limited-use disclosure, and secure data handling as required",
+      "Plan for annual recertification to keep production access"
+    ],
+    "tags": [
+      "restricted-scopes",
+      "casa",
+      "verification",
+      "security-assessment",
+      "gmail"
+    ],
+    "severity": "high",
+    "frequency": "rare",
+    "related_docs": [
+      "https://support.google.com/cloud/answer/9110914"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "OAuth verification submission keeps getting rejected",
+      "what is required to pass app verification",
+      "consent screen missing required info"
+    ],
+    "root_cause": "Verification rejections usually stem from incomplete consent screen branding or unjustified scopes: missing privacy policy, unverified domains, or scopes the demo does not exercise.",
+    "fix": [
+      "Provide a reachable homepage and privacy policy hosted on a verified, authorized domain",
+      "Justify each requested scope and remove any the app does not actually use",
+      "Record a demo video showing the exact OAuth flow and how each sensitive scope is used",
+      "Ensure the app name, logo, and support email match across the consent screen and your site"
+    ],
+    "tags": [
+      "verification",
+      "consent-screen",
+      "branding",
+      "privacy-policy",
+      "scopes"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://support.google.com/cloud/answer/13463073",
+      "https://developers.google.com/identity/protocols/oauth2/production-readiness"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "how to inspect what scopes/expiry a token has",
+      "debug an opaque access token",
+      "tokeninfo endpoint usage"
+    ],
+    "root_cause": "The tokeninfo endpoint returns metadata (scopes, audience, expiry) for a token, useful for debugging. It must not be used for per-request validation in production due to latency and rate limits.",
+    "fix": [
+      "GET https://oauth2.googleapis.com/tokeninfo?access_token=TOKEN (or ?id_token=TOKEN) to inspect scope, aud, exp during debugging",
+      "Confirm the returned 'scope' lists what you expect and 'aud'/'azp' matches your client_id",
+      "For production id_token validation, verify the JWT locally against Google's certs instead",
+      "Do not log full tokens; treat tokeninfo output as sensitive"
+    ],
+    "tags": [
+      "tokeninfo",
+      "debugging",
+      "scopes",
+      "introspection"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2/web-server#callinganapi"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "how to get the user's email and name after sign-in",
+      "do I need the People API for basic profile",
+      "fetching user profile from OAuth"
+    ],
+    "root_cause": "Basic profile info (sub, email, name, picture) comes from the id_token or the userinfo endpoint when you request the openid, email, and profile scopes — no separate People API call is needed.",
+    "fix": [
+      "Request scopes openid email profile; decode the validated id_token for sub/email/name/picture",
+      "Alternatively GET https://openidconnect.googleapis.com/v1/userinfo with the access token",
+      "Use the stable 'sub' claim as the user key, not email (emails can change/be reassigned)",
+      "Check email_verified before trusting the email for account linking"
+    ],
+    "tags": [
+      "userinfo",
+      "profile",
+      "openid",
+      "email",
+      "id-token"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/identity/openid-connect/openid-connect#obtaininguserprofileinformation"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "invalid_client error / Unauthorized on token exchange",
+      "401 invalid_client when refreshing or exchanging code",
+      "client authentication failed"
+    ],
+    "root_cause": "invalid_client means client authentication failed: a wrong/rotated client secret, sending a secret for a client type that has none, or a mismatched client_id.",
+    "fix": [
+      "Verify client_id and client_secret exactly match the OAuth client in the Console (watch for trailing whitespace)",
+      "Do not send a client_secret for native/mobile/SPA clients — they have none; use PKCE instead",
+      "If the secret was rotated, update it everywhere it is configured",
+      "Ensure the client used to start the flow is the same one used to exchange/refresh"
+    ],
+    "tags": [
+      "invalid-client",
+      "client-secret",
+      "client-id",
+      "401",
+      "token-exchange"
+    ],
+    "severity": "high",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "should I use one OAuth client for web, android, and ios",
+      "which OAuth client type to create",
+      "managing multiple platforms in one project"
+    ],
+    "root_cause": "Each platform needs the correct OAuth client type (Web, Android, iOS, Desktop, TV) within the same Cloud project. Using the wrong type or sharing one client across platforms causes signing/secret mismatches.",
+    "fix": [
+      "Create a separate OAuth client of the matching type per platform inside one Cloud project",
+      "Android clients are bound to your package name and SHA-1 signing certificate fingerprint",
+      "iOS clients are bound to your bundle ID; Web clients use redirect URIs and a secret",
+      "Keep all clients under the same project so they share the consent screen and scopes"
+    ],
+    "tags": [
+      "client-type",
+      "multi-platform",
+      "android",
+      "ios",
+      "configuration"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2#1.-obtain-oauth-2.0-credentials-from-the-dynamic_data.setvar.console_name."
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "desktop/CLI app cannot receive an OAuth redirect",
+      "urn:ietf:wg:oauth:2.0:oob no longer works",
+      "out-of-band OAuth flow deprecated"
+    ],
+    "root_cause": "The out-of-band (OOB, urn:ietf:wg:oauth:2.0:oob / copy-paste code) flow was deprecated and blocked. Installed apps must use a loopback IP redirect or a custom URI scheme instead.",
+    "fix": [
+      "For desktop/CLI, start a temporary local server and use a loopback redirect like http://127.0.0.1:<port> (or http://localhost:<port>)",
+      "For mobile, use a custom URI scheme (e.g., com.example.app:/oauth2redirect) registered to your app",
+      "Migrate off any urn:ietf:wg:oauth:2.0:oob redirect — it is no longer supported",
+      "Pair with PKCE since installed apps have no confidential secret"
+    ],
+    "tags": [
+      "installed-app",
+      "loopback",
+      "oob-deprecation",
+      "custom-scheme",
+      "desktop"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2/resources/oob-migration"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "get an access token in the browser without a refresh token",
+      "GIS token client silent access token",
+      "calling Google APIs directly from the browser"
+    ],
+    "root_cause": "With Google Identity Services, browser apps obtain access tokens via the token model (initTokenClient). Browsers do not receive refresh tokens; you re-request access tokens, and can do so without UI when a grant already exists.",
+    "fix": [
+      "Use google.accounts.oauth2.initTokenClient({client_id, scope, callback}) and call requestAccessToken()",
+      "For a silent attempt pass prompt:'' to reuse an existing grant without showing UI",
+      "Handle expiry by calling requestAccessToken() again — there is no browser-side refresh token",
+      "For long-lived offline access, run the code flow on a server and keep the refresh token there"
+    ],
+    "tags": [
+      "gis",
+      "token-client",
+      "browser",
+      "access-token",
+      "silent"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/identity/oauth2/web/guides/use-token-model"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "how to detect when a user revokes access",
+      "API calls start failing with invalid_grant after working",
+      "handle external token revocation"
+    ],
+    "root_cause": "A user can revoke your app at myaccount.google.com/permissions, or revocation can happen on password change (for some scopes). Your stored refresh token then fails with invalid_grant.",
+    "fix": [
+      "Treat invalid_grant on refresh as a revoked/expired grant: clear stored tokens and prompt re-authorization",
+      "Surface a clear 'reconnect your Google account' UX rather than silently failing",
+      "For higher security, subscribe to Cross-Account Protection (RISC) to receive revocation/security events proactively",
+      "Do not retry refresh on invalid_grant — it will not recover without re-consent"
+    ],
+    "tags": [
+      "revocation",
+      "invalid-grant",
+      "risc",
+      "cross-account-protection",
+      "re-authorization"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/risc"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "invalid_scope error on the authorization request",
+      "one bad scope breaks the whole consent",
+      "scope string rejected by Google"
+    ],
+    "root_cause": "invalid_scope means one of the requested scope strings is malformed, misspelled, or not valid for the API/client. A single bad scope can reject the entire authorization request.",
+    "fix": [
+      "Copy scopes exactly from https://developers.google.com/identity/protocols/oauth2/scopes (full URLs, correct casing)",
+      "Separate multiple scopes with spaces (URL-encoded as %20) — not commas",
+      "Always include openid (and email/profile) when you need an id_token",
+      "Remove deprecated or API-mismatched scopes and confirm the corresponding API is enabled"
+    ],
+    "tags": [
+      "invalid-scope",
+      "scopes",
+      "authorization-request",
+      "configuration"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2/scopes"
+    ],
+    "version": null,
+    "stack": "google-oauth"
+  }
+]

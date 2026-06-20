@@ -1,0 +1,41 @@
+{
+  "name": "google-sheets-expert",
+  "displayName": "Google Sheets Expert",
+  "version": "1.0.0",
+  "description": "Senior Google Sheets API engineer backed by a live, curated RAG knowledge base. Always scopes queries to the google-sheets stack.",
+  "keywords": [
+    "google",
+    "sheets",
+    "spreadsheet",
+    "batch",
+    "csv",
+    "values-get",
+    "values-update",
+    "batch-update",
+    "batch-get",
+    "service-account",
+    "sheets-as-cms",
+    "a1-notation",
+    "google-api"
+  ],
+  "author": "mcp-dev-knowledge",
+  "license": "ISC",
+  "steering": [
+    "steering/google-sheets-expert.md"
+  ],
+  "mcpServers": {
+    "dev-knowledge": {
+      "url": "https://mcp-dev-knowledge.vercel.app/api/mcp",
+      "headers": {
+        "Authorization": "Bearer ${MCP_API_KEY}"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "list_knowledge_filters",
+        "search_knowledge_base",
+        "get_knowledge_entry",
+        "find_similar_entries"
+      ]
+    }
+  }
+}

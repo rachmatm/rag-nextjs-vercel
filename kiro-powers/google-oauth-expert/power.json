@@ -1,0 +1,37 @@
+{
+  "name": "google-oauth-expert",
+  "displayName": "Google OAuth Expert",
+  "version": "1.0.0",
+  "description": "Senior Google OAuth engineer backed by a live, curated RAG knowledge base. Always scopes queries to the google-oauth stack.",
+  "keywords": [
+    "google",
+    "oauth",
+    "consent-screen",
+    "token-refresh",
+    "redirect-uri",
+    "scopes",
+    "service-account",
+    "id-token",
+    "pkce"
+  ],
+  "author": "mcp-dev-knowledge",
+  "license": "ISC",
+  "steering": [
+    "steering/google-oauth-expert.md"
+  ],
+  "mcpServers": {
+    "dev-knowledge": {
+      "url": "https://mcp-dev-knowledge.vercel.app/api/mcp",
+      "headers": {
+        "Authorization": "Bearer ${MCP_API_KEY}"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "list_knowledge_filters",
+        "search_knowledge_base",
+        "get_knowledge_entry",
+        "find_similar_entries"
+      ]
+    }
+  }
+}

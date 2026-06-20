@@ -1,0 +1,40 @@
+{
+  "name": "google-calendar-expert",
+  "displayName": "Google Calendar Expert",
+  "version": "1.0.0",
+  "description": "Senior Google Calendar API engineer backed by a live, curated RAG knowledge base. Always scopes queries to the google-calendar stack.",
+  "keywords": [
+    "google",
+    "calendar",
+    "events",
+    "webhooks",
+    "recurring",
+    "timezone",
+    "sync-token",
+    "rrule",
+    "push-notifications",
+    "google-api",
+    "freebusy",
+    "ical"
+  ],
+  "author": "mcp-dev-knowledge",
+  "license": "ISC",
+  "steering": [
+    "steering/google-calendar-expert.md"
+  ],
+  "mcpServers": {
+    "dev-knowledge": {
+      "url": "https://mcp-dev-knowledge.vercel.app/api/mcp",
+      "headers": {
+        "Authorization": "Bearer ${MCP_API_KEY}"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "list_knowledge_filters",
+        "search_knowledge_base",
+        "get_knowledge_entry",
+        "find_similar_entries"
+      ]
+    }
+  }
+}

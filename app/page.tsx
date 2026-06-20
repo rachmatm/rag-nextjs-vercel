@@ -51,6 +51,26 @@ const STACK_INFO: Record<string, { label: string; blurb: string }> = {
     blurb:
       "React Native for web, Android and iOS — Expo/bare, Metro, navigation, native builds, react-native-web, EAS.",
   },
+  "google-oauth": {
+    label: "Google OAuth",
+    blurb:
+      "Google OAuth 2.0 — consent screen, scopes, token refresh, redirect URIs, service accounts, PKCE, and ID token validation.",
+  },
+  "google-calendar": {
+    label: "Google Calendar API",
+    blurb:
+      "Google Calendar API — event CRUD, push notifications/webhooks, timezone handling, recurring events, sync tokens, and quotas.",
+  },
+  "google-sheets": {
+    label: "Google Sheets API",
+    blurb:
+      "Google Sheets API — values.get/append/batchUpdate, batch operations, service-account access, and the Sheets-as-CMS pattern.",
+  },
+  "kubernetes": {
+    label: "Kubernetes (On-Premise)",
+    blurb:
+      "On-premise Kubernetes with Node.js, CloudNativePG, BullMQ, KEDA, Cilium, Rook-Ceph, NATS JetStream, Vault, and the LGTM observability stack.",
+  },
 };
 
 const CONNECT_JSON = `{

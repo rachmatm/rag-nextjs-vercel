@@ -1,0 +1,1681 @@
+[
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "events.list returns empty items array",
+      "no events returned from Calendar API despite events existing",
+      "calendar events not showing up in API response"
+    ],
+    "root_cause": "The calendarId parameter is set to 'primary' but the authenticated user/service account does not own the target calendar, or timeMin/timeMax bounds exclude existing events",
+    "fix": [
+      "Use the specific calendar ID (email address of calendar owner or calendar resource ID) instead of 'primary'",
+      "Verify timeMin and timeMax are valid RFC3339 timestamps and the range includes the target events",
+      "Set singleEvents=true to expand recurring events into individual instances",
+      "Check that the service account has been granted access to the calendar via sharing settings"
+    ],
+    "tags": [
+      "events",
+      "list",
+      "calendarId",
+      "troubleshooting"
+    ],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events/list"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "events.insert returns 403 forbidden",
+      "cannot create event on shared calendar",
+      "insufficient permissions to create calendar event"
+    ],
+    "root_cause": "The authenticated identity lacks writer or owner ACL on the target calendar, or the OAuth scope is insufficient (using readonly scope)",
+    "fix": [
+      "Ensure the OAuth token includes the 'https://www.googleapis.com/auth/calendar' scope (not the readonly variant)",
+      "For shared calendars, verify the user/service account has 'writer' or 'owner' role via calendar ACL",
+      "For service accounts, share the calendar with the service account email and grant 'Make changes to events' permission",
+      "Check Google Workspace domain policies that may restrict external calendar modifications"
+    ],
+    "tags": [
+      "events",
+      "permissions",
+      "403",
+      "acl",
+      "create"
+    ],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events/insert",
+      "https://developers.google.com/calendar/api/v3/reference/acl"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "push notifications not being received",
+      "watch channel created but no notifications arrive",
+      "webhooks stopped working after channel expiry"
+    ],
+    "root_cause": "The watch channel has expired (max TTL is ~7 days), the receiving endpoint is not HTTPS with a valid certificate, or the domain is not registered in Google Search Console for the project",
+    "fix": [
+      "Register and verify your webhook domain in Google Search Console under the same project",
+      "Ensure the receiving URL is publicly reachable over HTTPS with a valid (non-self-signed) certificate",
+      "Implement channel renewal by calling events.watch again before the channel's expiration time",
+      "Store the channel ID and resource ID to stop expired channels with channels.stop before re-creating"
+    ],
+    "tags": [
+      "webhooks",
+      "push-notifications",
+      "watch",
+      "channels"
+    ],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/guides/push",
+      "https://developers.google.com/calendar/api/v3/reference/events/watch"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "event times shifted by several hours",
+      "all-day events showing wrong date",
+      "event created in wrong timezone",
+      "dateTime vs date confusion in event response"
+    ],
+    "root_cause": "Timezone not specified in the event start/end objects, or using 'date' (all-day) vs 'dateTime' (timed) incorrectly. All-day events use 'date' field (YYYY-MM-DD) without timezone; timed events require 'dateTime' with an IANA timezone in the 'timeZone' field",
+    "fix": [
+      "For timed events, always set both 'dateTime' (RFC3339) and 'timeZone' (IANA name like 'America/New_York') in start/end objects",
+      "For all-day events, use the 'date' field (YYYY-MM-DD format) without 'dateTime' or 'timeZone'",
+      "When listing events, use the 'timeZone' query parameter to control how times are returned",
+      "Store and compare times in UTC internally; only convert to local timezone for display"
+    ],
+    "tags": [
+      "timezone",
+      "events",
+      "datetime",
+      "all-day"
+    ],
+    "severity": "medium",
+    "frequency": "very-common",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/concepts/events-calendars#time_zones"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "error",
+    "symptoms": [
+      "rate limit exceeded 403 or 429",
+      "calendar API quota exceeded",
+      "userRateLimitExceeded error",
+      "rateLimitExceeded error on batch requests"
+    ],
+    "root_cause": "Exceeding the per-user (per-calendar) rate limit of ~10 QPS or the per-project daily quota. Batch requests count each sub-request individually against quotas",
+    "fix": [
+      "Implement exponential backoff with jitter on 403/429 responses (start at 1s, max 32s)",
+      "Use incremental sync (syncToken) instead of polling the full event list repeatedly",
+      "Batch related reads together (up to 50 per batch) to reduce round trips but note each sub-request counts toward quota",
+      "Cache event data locally and use push notifications to invalidate rather than polling",
+      "Request a quota increase in the Google Cloud Console if sustained load requires it"
+    ],
+    "tags": [
+      "rate-limiting",
+      "quotas",
+      "429",
+      "backoff",
+      "sync-token"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/guides/quota",
+      "https://developers.google.com/calendar/api/guides/sync"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "how to handle recurring events",
+      "recurring event instances not appearing",
+      "modifying single instance of recurring event",
+      "RRULE not expanding into instances"
+    ],
+    "root_cause": "Recurring events are stored as a single resource with an RRULE. By default, events.list returns the recurring event master, not individual instances. Modifying a single occurrence requires patching the instance, not the master",
+    "fix": [
+      "Set singleEvents=true in events.list to expand recurring events into individual instances sorted by start time",
+      "To modify one occurrence, use events.instances to get the specific instance ID, then events.patch on that instance",
+      "To create an exception (cancel one occurrence), set the instance's status to 'cancelled'",
+      "When creating recurring events, set the 'recurrence' field with RRULE strings (e.g., ['RRULE:FREQ=WEEKLY;BYDAY=MO'])"
+    ],
+    "tags": [
+      "recurring-events",
+      "rrule",
+      "instances",
+      "exceptions"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/concepts/events-calendars#recurring_events",
+      "https://developers.google.com/calendar/api/v3/reference/events/instances"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "how to efficiently sync calendar changes",
+      "detecting new or updated events without polling all events",
+      "incremental sync implementation"
+    ],
+    "root_cause": "Polling the full event list is wasteful and hits rate limits. The Calendar API supports incremental sync via syncToken and pageToken, returning only changes since the last sync",
+    "fix": [
+      "On first sync, call events.list with no syncToken; paginate through all results using nextPageToken",
+      "Store the nextSyncToken from the final page of results",
+      "On subsequent syncs, pass the stored syncToken to events.list to get only changed/deleted events",
+      "If the API returns HTTP 410 (Gone), the syncToken is invalid — perform a full sync again",
+      "Combine sync tokens with push notifications: use webhooks to trigger incremental syncs on-demand"
+    ],
+    "tags": [
+      "sync-token",
+      "incremental-sync",
+      "polling",
+      "efficiency"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/guides/sync"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "events.update returns 412 Precondition Failed",
+      "concurrent event modification conflict",
+      "etag mismatch when updating event"
+    ],
+    "root_cause": "The If-Match header (or etag in the request body) does not match the current event version. Another client modified the event between your read and write",
+    "fix": [
+      "Always fetch the latest event (events.get) immediately before updating to get the current etag",
+      "Use events.patch instead of events.update to send only changed fields, reducing conflict window",
+      "Implement retry logic: on 412, re-fetch the event, re-apply your changes, and retry the update",
+      "For non-critical updates, omit the If-Match header to force-overwrite (use with caution)"
+    ],
+    "tags": [
+      "events",
+      "update",
+      "etag",
+      "concurrency",
+      "412"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events/update"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "event attendees not receiving invitation emails",
+      "sendUpdates parameter not working",
+      "calendar invitations not sent to guests"
+    ],
+    "root_cause": "The sendUpdates parameter defaults to 'none' on events.insert/update/patch, so attendees are not notified unless explicitly requested. Service accounts may also be restricted from sending emails by domain policy",
+    "fix": [
+      "Set sendUpdates='all' to notify all attendees, or sendUpdates='externalOnly' for non-domain guests only",
+      "For service accounts using domain-wide delegation, impersonate a real user (set the 'subject' field in JWT) to send invites from their address",
+      "Verify the Google Workspace admin has not disabled calendar notifications for the organization",
+      "Check that attendees' email addresses are valid and not bouncing"
+    ],
+    "tags": [
+      "events",
+      "attendees",
+      "invitations",
+      "sendUpdates",
+      "service-account"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events/insert#parameters"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "create an event from a natural language string",
+      "quick add event like 'Lunch tomorrow at noon'",
+      "events.quickAdd usage"
+    ],
+    "root_cause": "events.quickAdd parses a single text string ('Dinner with Sam 7pm Friday') into an event. It is convenient but less precise than events.insert with structured fields.",
+    "fix": [
+      "Call events.quickAdd with calendarId and the text query parameter",
+      "Set sendUpdates if you want attendees (parsed from the text) notified",
+      "For reliable timezones, titles, and attendees, prefer events.insert with explicit fields",
+      "Quick-add interprets the text in the calendar's timezone"
+    ],
+    "tags": [
+      "quickAdd",
+      "create",
+      "natural-language",
+      "events"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events/quickAdd"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "delete a calendar event via API",
+      "remove an event and notify guests",
+      "events.delete sendUpdates"
+    ],
+    "root_cause": "events.delete removes an event. Like insert/update, it does not notify attendees unless sendUpdates is set, and deleting an instance of a recurring event differs from deleting the series.",
+    "fix": [
+      "Call events.delete with calendarId and eventId; set sendUpdates='all' to notify guests of the cancellation",
+      "Deleting the recurring master removes the whole series",
+      "To remove a single occurrence, patch that instance's status to 'cancelled' instead",
+      "A 410 Gone means it was already deleted — treat as success"
+    ],
+    "tags": [
+      "events",
+      "delete",
+      "sendUpdates",
+      "cancellation"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events/delete"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "move an event to a different calendar",
+      "change which calendar an event belongs to",
+      "events.move and changing organizer"
+    ],
+    "root_cause": "events.move transfers an event to another calendar, which also changes the organizer to the destination calendar. You cannot change an event's organizer any other way.",
+    "fix": [
+      "Call events.move with calendarId (source), eventId, and destination (target calendarId)",
+      "Both calendars must be accessible to the authenticated identity",
+      "Moving is the only supported way to change the organizer of an event",
+      "Set sendUpdates to notify attendees of the change"
+    ],
+    "tags": [
+      "events",
+      "move",
+      "organizer",
+      "calendars"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events/move"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "syncing external events creates duplicates",
+      "the same event appears multiple times after re-import",
+      "events.import with iCalUID for idempotency"
+    ],
+    "root_cause": "Repeatedly inserting events from an external source duplicates them. events.import upserts by iCalUID, so re-importing the same source event updates rather than duplicates it.",
+    "fix": [
+      "Use events.import (not events.insert) and set a stable iCalUID derived from the source event id",
+      "Re-importing with the same iCalUID into the same calendar updates the existing event",
+      "events.import is for copying existing events that already have an iCalUID; events.insert mints a new one",
+      "Track source-id → eventId mappings as a secondary safeguard"
+    ],
+    "tags": [
+      "events",
+      "import",
+      "iCalUID",
+      "deduplication",
+      "sync"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events/import"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "patching an event drops the existing attendees",
+      "events.patch removed all guests except the one I added",
+      "patch replaces array fields wholesale"
+    ],
+    "root_cause": "events.patch merges top-level fields but replaces array fields (like attendees) entirely. Sending a single attendee in a patch overwrites the whole guest list.",
+    "fix": [
+      "To add one attendee, fetch the current attendees, append, and send the FULL list in the patch",
+      "Arrays (attendees, recurrence, attachments) are replaced as a whole, not merged element-wise",
+      "Scalar fields (summary, location) can be patched individually",
+      "Re-fetch immediately before patching to avoid clobbering concurrent guest changes"
+    ],
+    "tags": [
+      "events",
+      "patch",
+      "attendees",
+      "arrays",
+      "gotcha"
+    ],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events/patch"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "let a guest accept or decline via API",
+      "update an attendee's RSVP / responseStatus",
+      "setting responseStatus"
+    ],
+    "root_cause": "An attendee's RSVP is the responseStatus field (needsAction/accepted/declined/tentative). To change your own RSVP, patch the event with the full attendees array including the updated status.",
+    "fix": [
+      "Patch the event with the complete attendees list, setting the target attendee's responseStatus",
+      "The authenticated user can update their own responseStatus on events they're invited to",
+      "Changing another guest's status generally requires being the organizer",
+      "Send the full attendees array (patch replaces it) to avoid dropping others"
+    ],
+    "tags": [
+      "attendees",
+      "responseStatus",
+      "rsvp",
+      "patch"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events#resource"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "guests cannot invite others or see the guest list",
+      "control what attendees are allowed to do",
+      "guestsCanModify / guestsCanInviteOthers / guestsCanSeeOtherGuests"
+    ],
+    "root_cause": "Three event flags govern guest permissions: guestsCanModify, guestsCanInviteOthers (default true), and guestsCanSeeOtherGuests (default true). Set them to lock down an event.",
+    "fix": [
+      "Set guestsCanInviteOthers=false to stop guests adding people",
+      "Set guestsCanSeeOtherGuests=false to hide the attendee list from guests",
+      "Set guestsCanModify=true to let guests edit the event (overrides the other two)",
+      "Apply these on events.insert/patch in the event body"
+    ],
+    "tags": [
+      "attendees",
+      "permissions",
+      "guestsCanModify",
+      "guestsCanInviteOthers",
+      "guestsCanSeeOtherGuests"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events#resource"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "mark an attendee as optional",
+      "distinguish required vs optional guests",
+      "optional attendee flag"
+    ],
+    "root_cause": "An attendee is marked optional by setting optional=true on their entry in the attendees array; otherwise they're treated as required.",
+    "fix": [
+      "Set attendees[].optional=true for non-essential guests",
+      "Use attendees[].resource=true for resource (room) entries",
+      "Include responseStatus to pre-seed an RSVP if appropriate",
+      "Remember patching attendees replaces the whole list — send all of them"
+    ],
+    "tags": [
+      "attendees",
+      "optional",
+      "events"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events#resource"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "events.list truncates the attendee list",
+      "only some attendees returned for large meetings",
+      "maxAttendees parameter"
+    ],
+    "root_cause": "For events with many guests, the API may limit returned attendees. The maxAttendees parameter caps how many are returned and, when exceeded, sets attendeesOmitted=true.",
+    "fix": [
+      "Pass maxAttendees to control how many attendees are returned per event",
+      "Check the attendeesOmitted flag to know the list was truncated",
+      "Fetch the single event (events.get) without a tight maxAttendees to get the full list when needed",
+      "Very large guest lists are returned in summarized form by design"
+    ],
+    "tags": [
+      "attendees",
+      "maxAttendees",
+      "attendeesOmitted",
+      "list"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events/list#parameters"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "set an event as public or private",
+      "control event visibility to others",
+      "event visibility field"
+    ],
+    "root_cause": "The visibility field (default/public/private/confidential) controls who can see event details on a shared calendar. It affects detail visibility, not access to the calendar itself.",
+    "fix": [
+      "Set visibility='private' so only attendees/owner see details on an otherwise-shared calendar",
+      "visibility='public' exposes details to anyone who can see the calendar",
+      "'default' inherits the calendar's default visibility",
+      "Visibility is independent of ACL/sharing — it shapes detail exposure, not access"
+    ],
+    "tags": [
+      "visibility",
+      "privacy",
+      "events"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events#resource"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "show an event as free instead of busy",
+      "block time without affecting availability",
+      "event transparency busy/free"
+    ],
+    "root_cause": "The transparency field controls whether an event consumes the user's availability: 'opaque' (default) marks them busy; 'transparent' marks the time free (e.g., FYI/all-day reminders).",
+    "fix": [
+      "Set transparency='transparent' to keep the time free in free/busy lookups",
+      "Leave it 'opaque' (default) for normal busy-blocking meetings",
+      "All-day informational events often use transparent so they don't block scheduling",
+      "Free/busy queries (freebusy.query) honor this flag"
+    ],
+    "tags": [
+      "transparency",
+      "free-busy",
+      "availability",
+      "events"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events#resource"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "store custom app data on an event",
+      "attach metadata to events for later lookup",
+      "extendedProperties private and shared"
+    ],
+    "root_cause": "extendedProperties let you store custom key/value data on an event: 'private' (visible only to the app on that calendar copy) and 'shared' (visible to all copies/attendees). You can search by privateExtendedProperty.",
+    "fix": [
+      "Set extendedProperties.private or extendedProperties.shared with your key/value pairs on insert/patch",
+      "Search later with events.list privateExtendedProperty=key=value (repeatable, AND-ed)",
+      "Use 'shared' when attendees' copies must carry the data; 'private' for app-only metadata",
+      "Keys/values have size limits; keep them small (store an id, not a blob)"
+    ],
+    "tags": [
+      "extendedProperties",
+      "metadata",
+      "privateExtendedProperty",
+      "search"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/guides/extended-properties"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "set the color of an event",
+      "use a specific event color via API",
+      "colorId and colors.get"
+    ],
+    "root_cause": "Event color is set via colorId, which indexes a fixed palette returned by colors.get (event colors are 1-11). Calendar-level colors are a separate palette.",
+    "fix": [
+      "Fetch the palette once with colors.get; use the event color keys (1-11)",
+      "Set event.colorId to the chosen key on insert/patch",
+      "Calendar (not event) coloring uses calendarList colorId / backgroundColor instead",
+      "Omitting colorId uses the calendar's default color"
+    ],
+    "tags": [
+      "colorId",
+      "colors",
+      "events",
+      "styling"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/colors/get"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "customize reminders for an event",
+      "add a popup or email reminder N minutes before",
+      "reminders overrides vs useDefault"
+    ],
+    "root_cause": "Event reminders are set via reminders.overrides (with useDefault=false) where each override has method (popup/email) and minutes; with useDefault=true the calendar's default reminders apply. Max 5 overrides.",
+    "fix": [
+      "Set reminders={useDefault:false, overrides:[{method:'popup',minutes:10}]} on the event",
+      "Use method 'email' or 'popup'; at most 5 overrides per event",
+      "Set useDefault=true (and omit overrides) to inherit the calendar's defaults",
+      "Reminders are per-user; the API sets them on the authenticated user's copy"
+    ],
+    "tags": [
+      "reminders",
+      "overrides",
+      "useDefault",
+      "notifications"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events#resource"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "attach a Drive file to an event",
+      "add a document attachment to a calendar event",
+      "event attachments supportsAttachments"
+    ],
+    "root_cause": "Events can carry Drive file attachments via the attachments array, but you must set supportsAttachments=true on the write request or the attachments are ignored.",
+    "fix": [
+      "Set supportsAttachments=true on events.insert/patch and provide attachments[].{fileUrl,title,mimeType}",
+      "fileUrl should be the Drive file's alternateLink/URL; the file must be accessible to attendees",
+      "Without supportsAttachments=true, the attachments field is silently dropped",
+      "There is a limit (currently 25) on attachments per event"
+    ],
+    "tags": [
+      "attachments",
+      "drive",
+      "supportsAttachments",
+      "events"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events#resource"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "all-day event ends a day early or spans an extra day",
+      "off by one on multi-day all-day events",
+      "end.date is exclusive"
+    ],
+    "root_cause": "For all-day events the end.date is EXCLUSIVE — a one-day event on the 10th has start.date=2025-01-10 and end.date=2025-01-11. Using the same date for start and end yields a zero-length (invalid) event.",
+    "fix": [
+      "Set end.date to the day AFTER the last day of the event (exclusive bound)",
+      "A single all-day event: start.date=D, end.date=D+1",
+      "A 3-day event Jan 10-12: start.date=2025-01-10, end.date=2025-01-13",
+      "Timed events (dateTime) use an inclusive end instant, unlike all-day date events"
+    ],
+    "tags": [
+      "all-day",
+      "end-date",
+      "exclusive",
+      "off-by-one",
+      "datetime"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/concepts/events-calendars#types_of_events"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "timeMin/timeMax rejected or ignored in events.list",
+      "Invalid value for timeMin",
+      "RFC3339 timestamp must include a timezone offset"
+    ],
+    "root_cause": "timeMin and timeMax must be RFC3339 timestamps that include a timezone offset (e.g., 2025-01-01T00:00:00Z or +07:00). Omitting the offset causes errors or unexpected windows.",
+    "fix": [
+      "Always include an explicit offset: use 'Z' for UTC or '+HH:MM' for a zone",
+      "Generate timestamps with a library (toISOString() in JS yields a valid 'Z' string)",
+      "Do not pass a bare 'YYYY-MM-DDTHH:MM:SS' without offset",
+      "timeMin is inclusive and timeMax is exclusive for the query window"
+    ],
+    "tags": [
+      "timeMin",
+      "timeMax",
+      "rfc3339",
+      "timezone",
+      "list"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events/list#parameters"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "recurring event creation fails or recurs in the wrong zone",
+      "Missing time zone for recurring event",
+      "RRULE needs start.timeZone"
+    ],
+    "root_cause": "A recurring timed event must specify start.timeZone (an IANA name). Without it, the RRULE has no anchor zone and creation fails or recurs incorrectly across DST.",
+    "fix": [
+      "Set start.timeZone and end.timeZone to IANA names (e.g., 'America/New_York') for recurring timed events",
+      "Put the RRULE in the recurrence array, e.g. ['RRULE:FREQ=WEEKLY;BYDAY=MO,WE']",
+      "For all-day recurring events use start.date/end.date (no timeZone needed)",
+      "DST is handled correctly only when a named timeZone is provided"
+    ],
+    "tags": [
+      "recurring-events",
+      "rrule",
+      "timezone",
+      "dst"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/concepts/events-calendars#recurring_events"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "recurring event ends at the wrong time / extra occurrence after DST",
+      "RRULE UNTIL not respected",
+      "UNTIL must be in UTC"
+    ],
+    "root_cause": "In an RRULE, the UNTIL value must be a UTC datetime ending in 'Z'. A local-time UNTIL is invalid and can produce an extra or missing final occurrence, especially around DST.",
+    "fix": [
+      "Express UNTIL in UTC: e.g. RRULE:FREQ=DAILY;UNTIL=20250131T235959Z",
+      "Convert your intended local end time to UTC before building the UNTIL",
+      "Alternatively use COUNT=N instead of UNTIL to bound occurrences",
+      "Verify with events.instances that the series ends where expected"
+    ],
+    "tags": [
+      "rrule",
+      "until",
+      "utc",
+      "dst",
+      "recurring-events"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/concepts/events-calendars#recurring_events"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "skip or change specific occurrences of a recurring event",
+      "add EXDATE / modify this-and-following",
+      "recurring exceptions"
+    ],
+    "root_cause": "Exceptions to a series are handled either by editing a single instance (events.instances + patch), cancelling an instance (status=cancelled), or splitting the series for 'this and following' changes.",
+    "fix": [
+      "To change one occurrence: get it via events.instances, then events.patch that instance id",
+      "To skip one occurrence: patch that instance's status to 'cancelled'",
+      "For 'this and all following', end the original series (set UNTIL) and create a new recurring event from the change point",
+      "The recurrence array can also include EXDATE entries to exclude specific datetimes"
+    ],
+    "tags": [
+      "recurring-events",
+      "exdate",
+      "exceptions",
+      "this-and-following",
+      "instances"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events/instances"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "add a Google Meet link to an event",
+      "create a video conference with the event",
+      "conferenceData.createRequest and conferenceDataVersion"
+    ],
+    "root_cause": "To attach a Google Meet link, send conferenceData.createRequest with a unique requestId AND set the conferenceDataVersion=1 query parameter; without that version param the conference is not created.",
+    "fix": [
+      "Include conferenceDataVersion=1 on the events.insert/patch request (query param)",
+      "Set conferenceData.createRequest.requestId to a unique value and conferenceSolutionKey.type='hangoutsMeet'",
+      "The Meet link/entryPoints populate asynchronously — read conferenceData.entryPoints after creation",
+      "Omitting conferenceDataVersion=1 silently drops the conference request"
+    ],
+    "tags": [
+      "conferenceData",
+      "google-meet",
+      "conferenceDataVersion",
+      "video"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/guides/create-events#video"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "Meet link not present right after creating the event",
+      "conferenceData.status is pending",
+      "conference create requestId reuse"
+    ],
+    "root_cause": "Conference creation is asynchronous: the createRequest returns a status that may be 'pending' before becoming 'success'. Reusing a requestId returns the same conference rather than creating a new one.",
+    "fix": [
+      "After insert, poll events.get (with conferenceDataVersion=1) until conferenceData.createRequest.status.statusCode='success'",
+      "Use a fresh, unique requestId for each NEW conference; reusing one is idempotent (returns the same Meet)",
+      "Read the join URL from conferenceData.entryPoints (entryPointType='video').uri",
+      "Handle 'failure' status by retrying with a new requestId"
+    ],
+    "tags": [
+      "conferenceData",
+      "google-meet",
+      "requestId",
+      "async",
+      "entryPoints"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events#resource"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "events.list only returns 250 events",
+      "missing events beyond the first page",
+      "pagination with maxResults and nextPageToken"
+    ],
+    "root_cause": "events.list returns at most maxResults events per page (default 250, max 2500). You must follow nextPageToken to retrieve all results.",
+    "fix": [
+      "Loop: keep calling events.list with pageToken=nextPageToken until no nextPageToken is returned",
+      "Raise maxResults up to 2500 to reduce round trips",
+      "Persist the final nextSyncToken (only present on the last page) for incremental sync",
+      "Do not assume a single call returns the full set"
+    ],
+    "tags": [
+      "pagination",
+      "maxResults",
+      "nextPageToken",
+      "list"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events/list#parameters"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "orderBy=startTime returns an error",
+      "cannot sort events by start time",
+      "orderBy startTime requires singleEvents"
+    ],
+    "root_cause": "events.list with orderBy='startTime' requires singleEvents=true, because ordering only makes sense over expanded instances, not recurring masters.",
+    "fix": [
+      "Set singleEvents=true whenever you use orderBy='startTime'",
+      "Without singleEvents, only orderBy='updated' is valid",
+      "singleEvents=true also expands recurring events into individual instances",
+      "Combine with timeMin/timeMax to bound the expansion window"
+    ],
+    "tags": [
+      "orderBy",
+      "startTime",
+      "singleEvents",
+      "list"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events/list#parameters"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "search events by keyword",
+      "full-text search across event fields",
+      "events.list q parameter"
+    ],
+    "root_cause": "The q parameter does a free-text search across event fields (summary, description, location, attendee names/emails, etc.). It is not a structured query language.",
+    "fix": [
+      "Pass q='keyword' to events.list to match across multiple text fields",
+      "Combine q with timeMin/timeMax and singleEvents for scoped, ordered results",
+      "For exact structured lookups (your app's data), prefer privateExtendedProperty over q",
+      "q matching is broad/fuzzy; post-filter results if you need precision"
+    ],
+    "tags": [
+      "search",
+      "q",
+      "full-text",
+      "list"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events/list#parameters"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "incremental sync misses deletions",
+      "deleted events not detected via syncToken",
+      "cancelled status and showDeleted in sync"
+    ],
+    "root_cause": "In incremental sync, deleted/cancelled events are returned with status='cancelled' rather than being absent. If you filter them out you will miss deletions; you must process cancelled as a removal.",
+    "fix": [
+      "Treat events with status='cancelled' in a sync response as deletions and remove them locally",
+      "Do not pass showDeleted=false during incremental sync, or you may miss cancellations",
+      "For full (initial) sync, decide whether to include showDeleted based on your needs",
+      "Keep applying changes until the page with nextSyncToken is reached"
+    ],
+    "tags": [
+      "sync-token",
+      "cancelled",
+      "showDeleted",
+      "deletions",
+      "incremental-sync"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/guides/sync"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "how to set up a watch channel for events",
+      "subscribe to event changes via webhook",
+      "events.watch channel parameters"
+    ],
+    "root_cause": "events.watch creates a notification channel that POSTs to your HTTPS endpoint on changes. The request body needs id, type='web_hook', address, an optional token, and params.ttl.",
+    "fix": [
+      "Call events.watch with body {id:<uuid>, type:'web_hook', address:'https://...', token:'secret', params:{ttl:'3600'}}",
+      "Store the returned resourceId and channel id; you need them to stop the channel",
+      "The address must be HTTPS with a valid cert and the domain verified for the project",
+      "Channels expire (max ~7 days for events) — renew before expiration"
+    ],
+    "tags": [
+      "watch",
+      "webhooks",
+      "channels",
+      "push-notifications",
+      "setup"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events/watch"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "how to handle incoming watch notifications",
+      "what headers do calendar webhooks send",
+      "X-Goog-Resource-State sync/exists"
+    ],
+    "root_cause": "Watch notifications are HTTP POSTs carrying X-Goog headers (Channel-ID, Resource-ID, Resource-State, Message-Number). The body is usually empty — you react by running an incremental sync.",
+    "fix": [
+      "Read X-Goog-Resource-State: 'sync' (initial handshake), 'exists' (a change occurred), or 'not_exists'",
+      "Verify X-Goog-Channel-ID and your token match what you stored before acting",
+      "On 'exists', trigger an incremental sync (events.list with your stored syncToken) — the POST body has no event data",
+      "Respond 200 quickly; do the sync work asynchronously"
+    ],
+    "tags": [
+      "webhooks",
+      "watch",
+      "X-Goog-Resource-State",
+      "headers",
+      "sync"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/guides/push"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "stop receiving webhook notifications",
+      "unsubscribe a calendar watch channel",
+      "channels.stop"
+    ],
+    "root_cause": "To cancel a notification channel before it expires, call channels.stop with the channel id and resourceId you saved when creating it.",
+    "fix": [
+      "Call channels.stop with body {id:<channelId>, resourceId:<resourceId>}",
+      "You must have stored both id and resourceId from the watch response",
+      "Stop the old channel before creating a renewed one to avoid duplicate notifications",
+      "Channels also auto-expire at their ttl/expiration"
+    ],
+    "tags": [
+      "channels",
+      "stop",
+      "watch",
+      "webhooks",
+      "cleanup"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/channels/stop"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "list all calendars the user can access",
+      "get the user's calendar list",
+      "calendarList.list vs calendars resource"
+    ],
+    "root_cause": "calendarList.list returns the calendars on the user's list (with per-user settings like color, default reminders, access role). The calendars resource is the underlying calendar metadata, accessed by id.",
+    "fix": [
+      "Call calendarList.list to enumerate calendars the user has added, including accessRole and primary flag",
+      "Use the 'primary' entry (or the user's email) for their main calendar",
+      "calendars.get(calendarId) returns calendar metadata (timeZone, summary) without user-specific list settings",
+      "Page through calendarList with nextPageToken for users with many calendars"
+    ],
+    "tags": [
+      "calendarList",
+      "calendars",
+      "list",
+      "accessRole"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/calendarList/list"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "create a new secondary calendar",
+      "make an additional calendar via API",
+      "calendars.insert"
+    ],
+    "root_cause": "calendars.insert creates a new secondary calendar owned by the authenticated identity. It returns the new calendarId, which you then use for events.",
+    "fix": [
+      "Call calendars.insert with body {summary:'Team Events', timeZone:'America/New_York'}",
+      "Use the returned id as the calendarId for subsequent events/ACL calls",
+      "Add it to the user's list and customize per-user settings via calendarList.insert/patch",
+      "Share it with others using acl.insert"
+    ],
+    "tags": [
+      "calendars",
+      "insert",
+      "create-calendar",
+      "secondary-calendar"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/calendars/insert"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "subscribe to an existing or public calendar",
+      "add someone else's calendar to my list",
+      "calendarList.insert with id"
+    ],
+    "root_cause": "To follow a calendar you have access to (or a public one), add it to your calendar list with calendarList.insert specifying its id — this is different from creating a new calendar.",
+    "fix": [
+      "Call calendarList.insert with body {id:'<calendarId or public id>'}",
+      "You must already have access (it's shared with you or public) for this to succeed",
+      "Set per-user options (colorId, defaultReminders, selected) in the same/follow-up call",
+      "Use calendarList.delete to unsubscribe (removes from your list, not the calendar itself)"
+    ],
+    "tags": [
+      "calendarList",
+      "subscribe",
+      "public-calendar",
+      "insert"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/calendarList/insert"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "share a calendar with a user via API",
+      "grant reader/writer access to a calendar",
+      "acl.insert roles"
+    ],
+    "root_cause": "Calendar sharing is controlled by the ACL collection. acl.insert grants a scope (user/group/domain) a role: none, freeBusyReader, reader, writer, or owner.",
+    "fix": [
+      "Call acl.insert with {role:'writer', scope:{type:'user', value:'person@example.com'}}",
+      "Use 'reader' for view, 'writer' to create/edit events, 'owner' for full control including sharing",
+      "Set sendNotifications appropriately when sharing",
+      "List/remove access with acl.list / acl.delete using the rule id"
+    ],
+    "tags": [
+      "acl",
+      "sharing",
+      "roles",
+      "permissions"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/acl/insert"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "change a calendar's timezone",
+      "all-day and recurring events shift after timezone change",
+      "calendars timeZone setting"
+    ],
+    "root_cause": "A calendar has a timeZone that anchors all-day and recurring event interpretation. Changing it (calendars.patch) affects how existing recurring/all-day events are displayed and computed.",
+    "fix": [
+      "Set the timeZone (IANA name) on calendars.insert or update it with calendars.patch",
+      "Per-event start.timeZone overrides for timed events; the calendar timeZone is the default anchor",
+      "Be cautious changing it on a calendar with recurring events — instances may shift",
+      "Read the current value via calendars.get"
+    ],
+    "tags": [
+      "timezone",
+      "calendars",
+      "recurring-events",
+      "all-day"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/calendars#resource"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "calendars.clear deletes nothing on a secondary calendar",
+      "how to remove all events from a calendar",
+      "calendars.clear only works on primary"
+    ],
+    "root_cause": "calendars.clear wipes all events but only operates on the user's PRIMARY calendar. For a secondary calendar, you must delete events individually or delete and recreate the calendar.",
+    "fix": [
+      "Use calendars.clear only for the primary calendar (calendarId='primary')",
+      "For a secondary calendar, page through events.list and call events.delete on each",
+      "Or delete the whole secondary calendar with calendars.delete and recreate it",
+      "calendars.clear is irreversible — confirm before running"
+    ],
+    "tags": [
+      "calendars",
+      "clear",
+      "primary",
+      "delete-events"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/calendars/clear"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "404 Not Found when accessing a calendar by id",
+      "group calendar id rejected",
+      "calendarId encoding and access"
+    ],
+    "root_cause": "A 404 on a calendarId usually means the calendar isn't shared with the authenticated identity, the id is wrong, or a special id (with @ or +) wasn't URL-encoded.",
+    "fix": [
+      "Verify the calendar is shared with the user/service account (acl) and use the exact id",
+      "URL-encode calendar ids containing special characters (e.g., group ids ending in @group.calendar.google.com)",
+      "The primary calendar id is the user's email (or the literal 'primary')",
+      "For service accounts, share the calendar or use domain-wide delegation to impersonate an owner"
+    ],
+    "tags": [
+      "404",
+      "calendarId",
+      "encoding",
+      "permissions",
+      "not-found"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/calendars/get"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "check when people are free or busy",
+      "query availability across calendars",
+      "freebusy.query usage"
+    ],
+    "root_cause": "freebusy.query returns busy time blocks for a set of calendars over a window, without exposing event details — ideal for availability checks and scheduling.",
+    "fix": [
+      "POST to freebusy.query with timeMin, timeMax, and items:[{id:calendarId}, ...]",
+      "Read the busy[] intervals per calendar from the response to compute free slots",
+      "The caller needs at least freeBusyReader access to each queried calendar",
+      "Keep the window reasonable; very large ranges or many calendars increase cost"
+    ],
+    "tags": [
+      "freebusy",
+      "availability",
+      "scheduling",
+      "query"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/freebusy/query"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "find a meeting time and book a room",
+      "schedule across attendees and a resource calendar",
+      "free/busy plus resource calendars"
+    ],
+    "root_cause": "There is no single 'find meeting time' endpoint in Calendar API v3; you combine freebusy.query across attendees and room (resource) calendars, pick a slot, then create the event adding the room as a resource attendee.",
+    "fix": [
+      "Run freebusy.query including attendee calendars and the room's resource calendar id",
+      "Compute a common free slot from the returned busy intervals",
+      "Create the event with the room added as an attendee (resource=true) so it gets booked",
+      "Resource (room) calendars come from the Workspace directory; the room auto-accepts if free"
+    ],
+    "tags": [
+      "scheduling",
+      "freebusy",
+      "rooms",
+      "resources",
+      "find-time"
+    ],
+    "severity": "medium",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/freebusy/query"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "service account cannot create events on a user's calendar",
+      "service account event has wrong organizer",
+      "Calendar requires domain-wide delegation to act as a user"
+    ],
+    "root_cause": "A service account only has its own calendar by default. To create events on a user's calendar or send invites from their address, it needs domain-wide delegation and must impersonate that user.",
+    "fix": [
+      "Enable domain-wide delegation and authorize the SA client id with the calendar scope in the Admin Console",
+      "Impersonate the user by setting the JWT 'subject' (sub) to their email when minting credentials",
+      "Alternatively, have the user share their calendar with the SA email and grant 'Make changes to events'",
+      "To send invitations from the user's address, impersonation (DWD) is required, not just sharing"
+    ],
+    "tags": [
+      "service-account",
+      "domain-wide-delegation",
+      "impersonation",
+      "organizer",
+      "permissions"
+    ],
+    "severity": "high",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/identity/protocols/oauth2/service-account#delegatingauthority"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "book a conference room",
+      "add a Workspace resource/room to an event",
+      "resource calendars as attendees"
+    ],
+    "root_cause": "Rooms are Workspace resource calendars. You book one by adding its resource email as an attendee (resource=true); if the room is free it auto-accepts.",
+    "fix": [
+      "Find the room's resource email via the Admin SDK Directory or the resource calendar id",
+      "Add it to attendees with {email:'<room>@resource.calendar.google.com', resource:true}",
+      "Check the room's free/busy first (freebusy.query) to avoid conflicts",
+      "The room's responseStatus reflects whether the booking was accepted"
+    ],
+    "tags": [
+      "rooms",
+      "resources",
+      "attendees",
+      "booking"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events#resource"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "create out-of-office, focus time, or working location events",
+      "special event types via API",
+      "eventType field"
+    ],
+    "root_cause": "Beyond default events, Calendar supports special eventTypes: outOfOffice, focusTime, and workingLocation. Set eventType on insert and provide the matching properties object.",
+    "fix": [
+      "Set eventType='outOfOffice' (with outOfOfficeProperties) to auto-decline meetings during that time",
+      "Use eventType='focusTime' (focusTimeProperties) to mark concentration blocks",
+      "Use eventType='workingLocation' (workingLocationProperties) to set home/office/custom location",
+      "These types have constraints (e.g., often single-attendee/own-calendar) — see the docs per type"
+    ],
+    "tags": [
+      "eventType",
+      "out-of-office",
+      "focus-time",
+      "working-location"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events#resource"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "floating times shift for attendees in other timezones",
+      "meeting appears at different local times correctly but data looks off",
+      "store events in UTC with timeZone"
+    ],
+    "root_cause": "Timed events store an instant (dateTime + timeZone). Each attendee sees it in their own zone. Problems arise when clients strip the timeZone or assume a single local zone.",
+    "fix": [
+      "Always send dateTime WITH a timeZone (or a UTC 'Z' offset) so the instant is unambiguous",
+      "Store/compare events as UTC internally; convert to local only for display",
+      "Use the events.list 'timeZone' parameter to control the zone times are returned in",
+      "Never drop the offset/timeZone — that creates floating-time ambiguity"
+    ],
+    "tags": [
+      "timezone",
+      "utc",
+      "floating-time",
+      "datetime",
+      "events"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/concepts/events-calendars#time_zones"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "get the individual occurrences of one recurring event",
+      "list instances of a specific series",
+      "events.instances"
+    ],
+    "root_cause": "events.instances returns the expanded occurrences of a single recurring event (by its master eventId), including any modified or cancelled instances — distinct from events.list with singleEvents.",
+    "fix": [
+      "Call events.instances with calendarId and the recurring event's eventId",
+      "Use timeMin/timeMax to bound which occurrences are returned",
+      "Modified occurrences appear with their own eventId and originalStartTime",
+      "Cancelled occurrences appear with status='cancelled'"
+    ],
+    "tags": [
+      "recurring-events",
+      "instances",
+      "occurrences"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events/instances"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "identifying which series a modified instance belongs to",
+      "originalStartTime and recurringEventId fields",
+      "linking instances back to the master"
+    ],
+    "root_cause": "A modified occurrence carries recurringEventId (the master's id) and originalStartTime (its slot in the series). These let you relate instances to their series and detect moved occurrences.",
+    "fix": [
+      "Read recurringEventId on an instance to find its master event",
+      "Use originalStartTime to know which occurrence it represents, even if its start was moved",
+      "When syncing, key instances by recurringEventId + originalStartTime for stable identity",
+      "A null recurringEventId means it's a standalone (non-recurring) event"
+    ],
+    "tags": [
+      "recurringEventId",
+      "originalStartTime",
+      "instances",
+      "sync"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events#resource"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "attendees added via patch don't get the right notifications",
+      "sendUpdates only notifies some guests",
+      "sendUpdates values all/externalOnly/none"
+    ],
+    "root_cause": "sendUpdates controls who is emailed on create/update/delete/move: 'all' notifies everyone, 'externalOnly' only non-Workspace-domain guests, and 'none' (default) notifies nobody.",
+    "fix": [
+      "Pass sendUpdates='all' when you want every attendee notified of changes",
+      "Use 'externalOnly' to email only guests outside your Workspace domain",
+      "Default 'none' means silent changes — set it explicitly when invites are expected",
+      "Service accounts may need DWD impersonation of a real user to actually send mail"
+    ],
+    "tags": [
+      "sendUpdates",
+      "notifications",
+      "attendees",
+      "invitations"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events/insert#parameters"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "set default reminders for an entire calendar",
+      "change reminders applied to all events by default",
+      "calendarList defaultReminders"
+    ],
+    "root_cause": "Per-user default reminders live on the calendarList entry (defaultReminders), not on the calendar resource. Events with reminders.useDefault=true inherit these.",
+    "fix": [
+      "Patch the calendarList entry with defaultReminders:[{method:'popup',minutes:30}]",
+      "Events with reminders.useDefault=true then inherit these defaults for that user",
+      "Per-event overrides (useDefault=false) take precedence over calendar defaults",
+      "defaultReminders are per-user and per-calendar (on the list entry)"
+    ],
+    "tags": [
+      "defaultReminders",
+      "calendarList",
+      "reminders",
+      "notifications"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/calendarList#resource"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "updating an event accidentally clears fields I didn't send",
+      "events.update wipes location/description",
+      "update replaces the whole resource"
+    ],
+    "root_cause": "events.update performs a full replace: any writable field you omit is cleared to its default. Use events.patch to change only specific fields and preserve the rest.",
+    "fix": [
+      "Use events.patch to modify a subset of fields without clearing others",
+      "If you must use events.update, fetch the event first and send back the complete resource with your changes",
+      "Remember even with patch, array fields (attendees) are replaced wholesale",
+      "Prefer patch + conditional retry for safe partial edits"
+    ],
+    "tags": [
+      "events",
+      "update",
+      "patch",
+      "full-replace",
+      "gotcha"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events/update"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "read created/updated timestamps and sequence of an event",
+      "detect when an event was last modified",
+      "created, updated, sequence fields"
+    ],
+    "root_cause": "Each event exposes created and updated timestamps and an iCalendar 'sequence' number that increments on significant changes — useful for change detection and conflict reasoning.",
+    "fix": [
+      "Read event.updated (RFC3339) to know the last modification time",
+      "Use event.sequence to track revisions; it must be preserved/incremented on update",
+      "Combine updated timestamps with syncToken-based sync rather than polling all events",
+      "created is set once at insert and does not change"
+    ],
+    "tags": [
+      "created",
+      "updated",
+      "sequence",
+      "metadata",
+      "events"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events#resource"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "birthdays or holidays events are read-only",
+      "cannot edit events on holiday/birthday calendars",
+      "system-generated calendars are not writable"
+    ],
+    "root_cause": "Google-generated calendars (Holidays, Birthdays/Contacts, Week numbers) are read-only. Attempts to insert/update/delete their events fail; you can only read them.",
+    "fix": [
+      "Treat holiday/birthday calendars as read-only sources; do not attempt writes",
+      "To add custom events, create them on the user's primary or a secondary calendar instead",
+      "You can still read these calendars (events.list) for display/aggregation",
+      "Subscribe/unsubscribe via calendarList rather than editing their contents"
+    ],
+    "tags": [
+      "read-only",
+      "holidays",
+      "birthdays",
+      "system-calendars"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://support.google.com/calendar/answer/37083"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "add a structured location or address to an event",
+      "set event location text",
+      "location field"
+    ],
+    "root_cause": "The event location is a single free-text string. Calendar may render a map if it recognizes the address, but there is no separate structured-address object for standard events.",
+    "fix": [
+      "Set event.location to a human-readable address string on insert/patch",
+      "Provide a complete, geocodable address if you want Calendar/Maps to link it",
+      "For virtual meetings, prefer conferenceData over stuffing a URL into location",
+      "Room bookings use resource attendees, not the location string"
+    ],
+    "tags": [
+      "location",
+      "address",
+      "events"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/calendar/api/v3/reference/events#resource"
+    ],
+    "version": "v3",
+    "stack": "google-calendar"
+  }
+]

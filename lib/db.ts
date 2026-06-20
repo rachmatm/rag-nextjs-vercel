@@ -47,7 +47,14 @@ const ENTRY_COLUMNS = `id, type, symptoms, root_cause, fix, tags, severity, freq
  * from a single stack, so Next.js/Vercel knowledge never leaks into React Native
  * work and vice versa. New stacks can be added to the data without code changes.
  */
-export const KNOWN_STACKS = ["nextjs-vercel", "react-native"] as const;
+export const KNOWN_STACKS = [
+  "nextjs-vercel",
+  "react-native",
+  "google-oauth",
+  "google-calendar",
+  "google-sheets",
+  "kubernetes",
+] as const;
 export const DEFAULT_STACK = "nextjs-vercel";
 
 export interface SearchParams {

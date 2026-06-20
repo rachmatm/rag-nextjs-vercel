@@ -1,0 +1,43 @@
+{
+  "name": "kubernetes-expert",
+  "displayName": "Kubernetes Expert",
+  "version": "1.0.0",
+  "description": "Senior on-premise Kubernetes engineer backed by a live, curated RAG knowledge base. Always scopes queries to the kubernetes stack.",
+  "keywords": [
+    "kubernetes",
+    "k8s",
+    "on-premise",
+    "helm",
+    "keda",
+    "metallb",
+    "cilium",
+    "cloudnativepg",
+    "rook-ceph",
+    "longhorn",
+    "bullmq",
+    "nats",
+    "vault",
+    "prometheus",
+    "gitops"
+  ],
+  "author": "mcp-dev-knowledge",
+  "license": "ISC",
+  "steering": [
+    "steering/kubernetes-expert.md"
+  ],
+  "mcpServers": {
+    "dev-knowledge": {
+      "url": "https://mcp-dev-knowledge.vercel.app/api/mcp",
+      "headers": {
+        "Authorization": "Bearer ${MCP_API_KEY}"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "list_knowledge_filters",
+        "search_knowledge_base",
+        "get_knowledge_entry",
+        "find_similar_entries"
+      ]
+    }
+  }
+}

@@ -1,0 +1,2235 @@
+[
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "spreadsheets.values.get returns empty values array",
+      "values.get response has no data despite sheet having content",
+      "API returns 200 but values field is missing or empty"
+    ],
+    "root_cause": "The A1 range notation is incorrect or references cells outside the data region. Common mistakes include using the wrong sheet name (case-sensitive), specifying a range beyond populated cells, or omitting the sheet name prefix when the spreadsheet has multiple tabs.",
+    "fix": [
+      "Verify the sheet tab name exactly matches (case-sensitive) — use spreadsheets.get to list all sheet titles first",
+      "Use an open-ended range like 'Sheet1!A:Z' or 'Sheet1!A1:Z' to capture all rows without guessing the last row",
+      "Pass valueRenderOption=UNFORMATTED_VALUE if you need raw numbers instead of display strings",
+      "Check that the spreadsheet ID in the URL is correct (the long string between /d/ and /edit)"
+    ],
+    "tags": [
+      "read-data",
+      "values-get",
+      "a1-notation",
+      "range"
+    ],
+    "severity": "medium",
+    "frequency": "very-common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets.values/get",
+      "https://developers.google.com/sheets/api/guides/concepts#a1_notation"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "batchGet returns partial data for some ranges",
+      "values.batchGet response valueRanges array has fewer entries than requested",
+      "some ranges return empty while others work in the same batchGet call"
+    ],
+    "root_cause": "One or more of the requested ranges reference non-existent sheet names or out-of-bounds cells. Unlike single-range get which throws a 400 on a bad range, batchGet may return empty valueRanges for invalid sheet names depending on API version behavior. Also, exceeding the 100-range per-request limit silently truncates results in some client libraries.",
+    "fix": [
+      "Validate all sheet tab names before building the ranges array — call spreadsheets.get with fields='sheets.properties.title'",
+      "Keep batchGet requests to at most 100 ranges per call; split larger batches into multiple requests",
+      "Ensure each range string is prefixed with the exact sheet name including any spaces (wrap in single quotes: 'Sheet Name'!A1:B10)",
+      "Check the valueRanges response length matches your input ranges length to detect silent misses"
+    ],
+    "tags": [
+      "read-data",
+      "batch-get",
+      "batch-operations",
+      "range"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets.values/batchGet"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "values.update returns 200 but sheet data is not changed",
+      "update call succeeds with updatedCells: 0",
+      "written data appears in wrong cells or overwrites unexpected range"
+    ],
+    "root_cause": "The valueInputOption parameter is missing or set incorrectly. When omitted, the API returns a 400. When set to RAW, formulas are stored as literal strings. When the range doesn't match the shape of the values array, data lands in unexpected cells because the API auto-expands the range from the top-left anchor.",
+    "fix": [
+      "Always pass valueInputOption — use USER_ENTERED to have Sheets parse formulas and dates, or RAW for literal string storage",
+      "Ensure the values 2D array dimensions match the target range dimensions (rows × cols)",
+      "Use includeValuesInResponse=true to confirm what was actually written",
+      "For single-cell writes, specify the exact cell (e.g., Sheet1!B2) rather than a multi-cell range"
+    ],
+    "tags": [
+      "write-data",
+      "values-update",
+      "valueInputOption"
+    ],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets.values/update",
+      "https://developers.google.com/sheets/api/reference/rest/v4/ValueInputOption"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "values.append inserts data in the wrong row",
+      "append adds rows below an unexpected gap in the sheet",
+      "appended data appears after a hidden row or filtered view instead of at the logical end of data"
+    ],
+    "root_cause": "The append method detects the 'table' in the specified range by searching for the first empty row after existing data. Hidden rows, filtered views, or stray values in distant cells cause the detected table boundary to shift. The insertDataOption also controls whether rows are inserted or overwrite existing content.",
+    "fix": [
+      "Specify a tight table range (e.g., Sheet1!A1:E1) so the API anchors the append to that specific table region",
+      "Set insertDataOption=INSERT_ROWS to always insert new rows rather than overwriting",
+      "Clear stray content in rows far below your data that may extend the detected table range",
+      "Use values.update targeting a specific row if you need deterministic placement instead of append"
+    ],
+    "tags": [
+      "write-data",
+      "values-append",
+      "insertDataOption"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets.values/append"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "need to update many cells across different ranges efficiently",
+      "multiple sequential update calls are slow or hit rate limits",
+      "want to write to several sheets in one API call"
+    ],
+    "root_cause": "Making individual values.update calls for each range is inefficient and quickly exhausts the 60-requests-per-minute per-user quota. The batchUpdate (values) endpoint accepts multiple range-value pairs in a single HTTP request, and the spreadsheets.batchUpdate endpoint handles structural changes (formatting, adding sheets, etc.).",
+    "fix": [
+      "Use spreadsheets.values.batchUpdate to write multiple value ranges in one call — pass an array of {range, values} in the data field",
+      "Set valueInputOption once at the top level rather than per-range",
+      "For structural changes (formatting, conditional formatting, creating sheets), use spreadsheets.batchUpdate with an array of request objects",
+      "Batch reads with values.batchGet and batch writes with values.batchUpdate to stay well under quota limits",
+      "Keep each batchUpdate to under 100 ranges and 10MB total payload size"
+    ],
+    "tags": [
+      "batch-operations",
+      "write-data",
+      "rate-limiting",
+      "performance"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets.values/batchUpdate",
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/batchUpdate",
+      "https://developers.google.com/sheets/api/limits"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "403 Forbidden when accessing a spreadsheet via service account",
+      "The caller does not have permission error with service account",
+      "service account can authenticate but gets 403 on specific spreadsheets"
+    ],
+    "root_cause": "The spreadsheet has not been shared with the service account's email address. Unlike user OAuth where the authenticated user already has access to their own sheets, a service account is a separate identity and must be explicitly granted access. The service account email looks like name@project-id.iam.gserviceaccount.com.",
+    "fix": [
+      "Share the target spreadsheet with the service account email (found in the JSON key file under client_email) — grant at least Viewer for reads or Editor for writes",
+      "Alternatively, use domain-wide delegation if accessing sheets owned by users in a Google Workspace org",
+      "Ensure the Sheets API is enabled in the Google Cloud project that owns the service account",
+      "Verify the service account key file has not been revoked in the Cloud Console under IAM > Service Accounts > Keys"
+    ],
+    "tags": [
+      "service-account",
+      "permissions",
+      "403-forbidden",
+      "sharing"
+    ],
+    "severity": "high",
+    "frequency": "very-common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/guides/authorizing",
+      "https://cloud.google.com/iam/docs/service-account-overview"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to use Google Sheets as a lightweight CMS or content store",
+      "need to read structured data from a spreadsheet for a website or app",
+      "looking for a simple headless CMS alternative using Sheets"
+    ],
+    "root_cause": "Google Sheets works well as a lightweight CMS for small datasets (config tables, copy, translations, feature flags). The pattern uses a service account for server-side reads with no user OAuth required, treats row 1 as headers, and maps rows to objects. Caching the response avoids per-request API calls and quota exhaustion.",
+    "fix": [
+      "Create a service account, download the JSON key, share the spreadsheet with the service account email as Viewer",
+      "Use values.get with the full data range (e.g., 'Content!A1:Z') and map the first row as field names to produce an array of objects",
+      "Cache the Sheets response in memory or a short-TTL store (60-300s) to avoid hitting the 60 req/min quota on every page load",
+      "For write-back (e.g., form submissions), use values.append with the service account granted Editor access",
+      "Consider using valueRenderOption=FORMATTED_VALUE for display strings or UNFORMATTED_VALUE for raw data processing"
+    ],
+    "tags": [
+      "sheets-as-cms",
+      "service-account",
+      "read-data",
+      "caching",
+      "pattern"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/guides/concepts",
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets.values/get"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "403 error 'Google Sheets API has not been used in project' even after enabling it",
+      "PERMISSION_DENIED: Google Sheets API is disabled for this project",
+      "sheets API calls fail with 403 despite correct credentials"
+    ],
+    "root_cause": "The API enablement can take up to a few minutes to propagate. Alternatively, the credentials (API key or service account) belong to a different GCP project than the one where the Sheets API was enabled. Projects have separate API enablement states.",
+    "fix": [
+      "Confirm the API is enabled in the same GCP project whose credentials you are using — check the project_id in your service account JSON key matches the project in console.cloud.google.com/apis",
+      "Wait 2-5 minutes after enabling the API for propagation to complete, then retry",
+      "If using an API key, ensure it is not restricted to other APIs only — check API restrictions in the Credentials page",
+      "Verify the OAuth consent screen is configured (even for service accounts the project needs a configured consent screen in some cases)"
+    ],
+    "tags": [
+      "permissions",
+      "api-enablement",
+      "403-forbidden",
+      "gcp-project"
+    ],
+    "severity": "high",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://console.cloud.google.com/apis/library/sheets.googleapis.com",
+      "https://developers.google.com/sheets/api/quickstart/nodejs"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "values.batchUpdate returns 400 Invalid JSON payload",
+      "batchUpdate request body rejected with 'data' field error",
+      "error serializing batchUpdate request with multiple ranges"
+    ],
+    "root_cause": "The values.batchUpdate endpoint (spreadsheets.values.batchUpdate) requires a specific request body shape: {valueInputOption, data: [{range, values}, ...]}. Common mistakes include passing the data array at the wrong nesting level, omitting valueInputOption at the top level, or confusing this endpoint with the structural spreadsheets.batchUpdate which takes {requests: [...]} instead.",
+    "fix": [
+      "Use the correct request body shape: { valueInputOption: 'USER_ENTERED', data: [{ range: 'Sheet1!A1:B2', values: [[1,2],[3,4]] }] }",
+      "Do not confuse spreadsheets.values.batchUpdate (for cell values) with spreadsheets.batchUpdate (for structural changes like formatting)",
+      "Ensure each entry in the data array has both 'range' (string) and 'values' (2D array) fields",
+      "Validate JSON serialization — ensure arrays are not accidentally stringified or double-encoded"
+    ],
+    "tags": [
+      "batch-operations",
+      "write-data",
+      "request-body",
+      "400-error"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets.values/batchUpdate"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "how to clear a range of cells",
+      "delete values without deleting the rows",
+      "values.clear usage"
+    ],
+    "root_cause": "spreadsheets.values.clear removes only the values in a range, leaving formatting, data validation, and the row/column structure intact. To remove formatting too you need a batchUpdate.",
+    "fix": [
+      "Call spreadsheets.values.clear with the spreadsheetId and range to wipe values only",
+      "Use an open-ended range like 'Sheet1!A2:Z' to clear all data rows but keep the header",
+      "To also clear formatting/notes, use spreadsheets.batchUpdate with updateCells and a fields mask of 'userEnteredValue,userEnteredFormat'",
+      "To remove rows entirely (shifting cells up), use a DeleteDimensionRequest instead"
+    ],
+    "tags": [
+      "values-clear",
+      "clear-data",
+      "range"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets.values/clear"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "formulas returned as their computed values instead of the =FORMULA",
+      "want to read the actual formula text",
+      "valueRenderOption confusion"
+    ],
+    "root_cause": "By default values.get returns FORMATTED_VALUE (display strings). To get raw numbers use UNFORMATTED_VALUE; to get the formula text use FORMULA.",
+    "fix": [
+      "Pass valueRenderOption=FORMULA to read the literal '=SUM(...)' text of cells",
+      "Use UNFORMATTED_VALUE for raw numeric/boolean values without locale formatting",
+      "Use FORMATTED_VALUE (default) only for display strings that match what the user sees",
+      "Combine with dateTimeRenderOption to control how dates come back"
+    ],
+    "tags": [
+      "valueRenderOption",
+      "formulas",
+      "read-data",
+      "unformatted"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/ValueRenderOption"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "dates come back as large numbers like 45000",
+      "date cells return serial numbers not strings",
+      "dateTimeRenderOption and the 1899 epoch"
+    ],
+    "root_cause": "Sheets stores dates as serial numbers counting days since the epoch 1899-12-30. With dateTimeRenderOption=SERIAL_NUMBER you get the number; with FORMATTED_STRING you get the display text.",
+    "fix": [
+      "Set dateTimeRenderOption=FORMATTED_STRING to receive human-readable dates",
+      "If you get serial numbers, convert with epoch 1899-12-30: jsDate = new Date(Date.UTC(1899,11,30) + serial*86400000)",
+      "Account for the spreadsheet's locale/timezone when interpreting serial numbers",
+      "When writing dates with USER_ENTERED, send a string Sheets can parse in the spreadsheet's locale"
+    ],
+    "tags": [
+      "dates",
+      "serial-number",
+      "dateTimeRenderOption",
+      "epoch",
+      "read-data"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/DateTimeRenderOption"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "read data column by column instead of row by row",
+      "transpose orientation of values response",
+      "majorDimension COLUMNS"
+    ],
+    "root_cause": "values responses default to majorDimension=ROWS (an array of rows). Setting majorDimension=COLUMNS returns an array of columns, which is convenient for column-oriented processing.",
+    "fix": [
+      "Pass majorDimension=COLUMNS on values.get to get [[col A...],[col B...]] instead of rows",
+      "Use the same parameter on values.update/append so your input array orientation matches",
+      "Be consistent: mixing ROWS input with a COLUMNS-shaped array writes data transposed",
+      "Default is ROWS if omitted"
+    ],
+    "tags": [
+      "majorDimension",
+      "columns",
+      "read-data",
+      "orientation"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/Dimension"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "rows in the response have different lengths",
+      "trailing empty cells missing from values array",
+      "index out of range reading the last columns"
+    ],
+    "root_cause": "The values API omits trailing empty cells, so rows can be shorter than expected and the last fully-empty rows may be absent entirely. Code that assumes a fixed column count crashes.",
+    "fix": [
+      "Do not assume every row has the same number of columns — pad rows to your expected width when mapping",
+      "Guard array access (e.g., row[3] ?? '') for columns that may be missing",
+      "If you need a rectangular block, request a bounded range and fill missing cells yourself",
+      "Remember entirely empty trailing rows are not returned at all"
+    ],
+    "tags": [
+      "read-data",
+      "empty-cells",
+      "trailing",
+      "array-length"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets.values/get"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "values.get returns too much data / response is huge",
+      "reduce Sheets API response size",
+      "fields mask / partial response"
+    ],
+    "root_cause": "Requesting full responses (especially spreadsheets.get with grid data) returns large payloads. A fields mask returns only the parts you need, cutting bandwidth and latency.",
+    "fix": [
+      "Add a fields parameter (partial response), e.g. fields='sheets.properties(sheetId,title)' on spreadsheets.get",
+      "On values.get use fields='values' to drop range/majorDimension metadata if not needed",
+      "Avoid includeGridData=true unless you specifically need cell formatting/notes",
+      "Combine fields masks with batch endpoints to minimize total round trips"
+    ],
+    "tags": [
+      "fields-mask",
+      "partial-response",
+      "performance",
+      "payload"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/guides/field-masks"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "read cell formatting, notes, or data validation",
+      "get colors and number formats via API",
+      "includeGridData usage"
+    ],
+    "root_cause": "Cell-level metadata (formats, notes, data validation, hyperlinks) is not returned by values.get. Use spreadsheets.get with includeGridData=true (and a ranges filter) to read the full grid.",
+    "fix": [
+      "Call spreadsheets.get with includeGridData=true and ranges to limit the area read",
+      "Read formatting from rowData[].values[].effectiveFormat / userEnteredFormat",
+      "Read notes from the 'note' field and hyperlinks from 'hyperlink' or textFormatRuns",
+      "Use a fields mask to fetch only the metadata you need, as full grid data is large"
+    ],
+    "tags": [
+      "includeGridData",
+      "formatting",
+      "notes",
+      "metadata",
+      "read-data"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/get"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "select cells by a filter instead of A1 range",
+      "read/write by developer metadata or DataFilter",
+      "getByDataFilter usage"
+    ],
+    "root_cause": "The *ByDataFilter endpoints let you target cells via A1 ranges, R1C1, GridRange, or developer metadata lookups, which is more robust than hardcoded A1 strings when sheets change.",
+    "fix": [
+      "Use spreadsheets.values.batchGetByDataFilter / batchUpdateByDataFilter with DataFilter objects",
+      "Filter by developerMetadataLookup to find ranges tagged with stable metadata keys",
+      "Filter by gridRange to target by sheetId + 0-based indices, immune to sheet renames",
+      "Prefer these when row/column positions shift over time"
+    ],
+    "tags": [
+      "data-filter",
+      "getByDataFilter",
+      "developer-metadata",
+      "gridRange"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets.values/batchGetByDataFilter"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "cells contain #REF!, #N/A, #DIV/0! as text",
+      "formula error values in the API response",
+      "how to detect cell errors via API"
+    ],
+    "root_cause": "When a formula errors, FORMATTED_VALUE returns the error string (e.g., '#REF!'). With includeGridData you can read effectiveValue.errorValue for a structured error type and message.",
+    "fix": [
+      "With values.get the error appears as a string like '#N/A' — detect by prefix '#'",
+      "For structured detection, read effectiveValue.errorValue.{type,message} via spreadsheets.get includeGridData",
+      "Fix the underlying formula (broken reference, wrong range) rather than parsing the error",
+      "Use IFERROR in the sheet to provide fallbacks if errors are expected"
+    ],
+    "tags": [
+      "error-values",
+      "formulas",
+      "#ref",
+      "read-data"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets#ErrorValue"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "API key works for some sheets but returns 403 on others",
+      "The caller does not have permission with an API key",
+      "when can I use an API key for Sheets"
+    ],
+    "root_cause": "An API key only authorizes access to spreadsheets that are publicly readable ('Anyone with the link'). Private sheets require OAuth (user) or a shared service account; API keys cannot read them.",
+    "fix": [
+      "Use an API key only for reading sheets shared as 'Anyone with the link can view'",
+      "For private data, switch to OAuth or a service account shared on the spreadsheet",
+      "API keys never allow writes — use OAuth/service account for any update/append",
+      "Restrict the API key to the Sheets API and by referrer/IP to limit abuse"
+    ],
+    "tags": [
+      "api-key",
+      "permissions",
+      "public-sheet",
+      "403-forbidden"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/guides/authorizing"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "Unable to parse range error",
+      "400 Invalid range / INVALID_ARGUMENT on values call",
+      "range string rejected"
+    ],
+    "root_cause": "'Unable to parse range' means the A1 (or R1C1) string is malformed: a misspelled sheet name, missing quotes around a name with spaces, or an unescaped apostrophe in the name.",
+    "fix": [
+      "Match the sheet tab name exactly (case-sensitive); list titles via spreadsheets.get to confirm",
+      "Wrap sheet names containing spaces or special characters in single quotes: 'My Sheet'!A1:B2",
+      "Escape an apostrophe in a sheet name by doubling it: 'O''Brien'!A1",
+      "Ensure the range itself is valid (e.g., A1:B2, not B2:A1 reversed or A0)"
+    ],
+    "tags": [
+      "range",
+      "a1-notation",
+      "parse-error",
+      "400-error",
+      "sheet-name"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/guides/concepts#a1_notation"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "write a formula into a cell via the API",
+      "store =SUM() instead of literal text",
+      "USER_ENTERED vs RAW for formulas"
+    ],
+    "root_cause": "With valueInputOption=RAW, a string like '=SUM(A1:A2)' is stored as literal text. To have Sheets interpret it as a formula, use valueInputOption=USER_ENTERED.",
+    "fix": [
+      "Set valueInputOption=USER_ENTERED so '=SUM(A1:A2)' becomes a live formula",
+      "Use RAW only when you want the literal characters stored (e.g., text that starts with '=')",
+      "USER_ENTERED also parses numbers, dates, and percentages per the spreadsheet locale",
+      "Formula function names must be in English regardless of the spreadsheet locale"
+    ],
+    "tags": [
+      "write-data",
+      "formulas",
+      "USER_ENTERED",
+      "valueInputOption"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/ValueInputOption"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "USER_ENTERED parses my numbers/dates wrong",
+      "1,5 becomes 15 or a date flips month/day",
+      "locale affects value parsing"
+    ],
+    "root_cause": "With USER_ENTERED, Sheets parses strings using the spreadsheet's locale, so decimal separators and date orders depend on that locale (e.g., comma decimals, DD/MM vs MM/DD).",
+    "fix": [
+      "Set the spreadsheet locale intentionally (UpdateSpreadsheetPropertiesRequest, properties.locale) and parse accordingly",
+      "To avoid ambiguity, write raw numbers as actual JSON numbers, not locale-formatted strings",
+      "Write dates as ISO 8601 (YYYY-MM-DD) or as serial numbers to bypass locale date parsing",
+      "Use RAW when you must store an exact string without locale interpretation"
+    ],
+    "tags": [
+      "locale",
+      "USER_ENTERED",
+      "number-parsing",
+      "dates",
+      "write-data"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets#SpreadsheetProperties"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "insert a clickable link into a cell",
+      "add a hyperlink via the API",
+      "HYPERLINK formula vs rich text link"
+    ],
+    "root_cause": "There are two ways to create a link: the HYPERLINK() formula (whole-cell link) written with USER_ENTERED, or a rich-text link via textFormatRuns in a batchUpdate updateCells request (link on part of the text).",
+    "fix": [
+      "For a whole-cell link, write =HYPERLINK(\"https://...\",\"label\") with valueInputOption=USER_ENTERED",
+      "For partial/rich-text links, use batchUpdate updateCells with textFormatRuns and a format.link.uri",
+      "Set the fields mask to include 'userEnteredValue,textFormatRuns' when using rich text",
+      "Reading back: HYPERLINK shows as a formula (FORMULA render), rich links via includeGridData hyperlink/textFormatRuns"
+    ],
+    "tags": [
+      "hyperlink",
+      "rich-text",
+      "write-data",
+      "textFormatRuns"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/samples/formatting"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "add checkboxes to cells via the API",
+      "insert boolean checkbox cells",
+      "data validation boolean condition"
+    ],
+    "root_cause": "Checkboxes are cells with a BOOLEAN data validation rule. Set them with a SetDataValidationRequest using a condition of type BOOLEAN, then write TRUE/FALSE values.",
+    "fix": [
+      "Use batchUpdate setDataValidation with rule.condition.type=BOOLEAN over the target range",
+      "Write boolean values (true/false) to those cells via values.update with USER_ENTERED",
+      "For custom checked/unchecked values, use BOOLEAN with two condition values",
+      "Read checkbox state as boolean with valueRenderOption=UNFORMATTED_VALUE"
+    ],
+    "tags": [
+      "checkbox",
+      "data-validation",
+      "boolean",
+      "write-data"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets#BooleanCondition"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "create a brand new spreadsheet via the API",
+      "programmatically make a new Google Sheet",
+      "spreadsheets.create"
+    ],
+    "root_cause": "spreadsheets.create makes a new spreadsheet and returns its spreadsheetId. The creating identity owns it; a service account that creates a sheet owns it in its own Drive (not visible to humans unless shared).",
+    "fix": [
+      "Call spreadsheets.create with a request body of properties.title and optional initial sheets",
+      "Capture the returned spreadsheetId and spreadsheetUrl from the response",
+      "If a service account creates it, share it with a human (Drive permissions.create) or create it in a shared drive",
+      "Set initial locale/timeZone in properties to avoid later parsing surprises"
+    ],
+    "tags": [
+      "create-spreadsheet",
+      "spreadsheets-create",
+      "service-account",
+      "ownership"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/create"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "add a new tab/sheet to an existing spreadsheet",
+      "create a worksheet via API and get its id",
+      "AddSheetRequest"
+    ],
+    "root_cause": "Add a tab with a batchUpdate AddSheetRequest. The new sheetId (gid) is returned in the corresponding entry of the batchUpdate response 'replies' array.",
+    "fix": [
+      "Send batchUpdate with requests:[{addSheet:{properties:{title:'New'}}}]",
+      "Read the new sheetId from replies[0].addSheet.properties.sheetId",
+      "Optionally set gridProperties (rowCount/columnCount) and index (tab position) in properties",
+      "Adding a sheet with a duplicate title returns a 400 — titles must be unique"
+    ],
+    "tags": [
+      "add-sheet",
+      "batchUpdate",
+      "sheetId",
+      "tabs",
+      "structural"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/request#addsheetrequest"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "delete a tab/sheet via the API",
+      "remove a worksheet",
+      "DeleteSheetRequest"
+    ],
+    "root_cause": "Remove a tab with a batchUpdate DeleteSheetRequest referencing its sheetId. You cannot delete the only remaining sheet in a spreadsheet.",
+    "fix": [
+      "Send batchUpdate with requests:[{deleteSheet:{sheetId: <gid>}}]",
+      "Find the sheetId from spreadsheets.get sheets.properties.sheetId (not the title)",
+      "Deleting the last remaining sheet fails — add another first if needed",
+      "This is irreversible via the API; copy the data first if you might need it"
+    ],
+    "tags": [
+      "delete-sheet",
+      "batchUpdate",
+      "sheetId",
+      "structural"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/request#deletesheetrequest"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "duplicate an existing tab within the spreadsheet",
+      "copy a worksheet as a template",
+      "DuplicateSheetRequest"
+    ],
+    "root_cause": "DuplicateSheetRequest copies a sheet (values, formats, formulas) into a new tab within the same spreadsheet, useful for templating monthly/per-client sheets.",
+    "fix": [
+      "Send batchUpdate duplicateSheet with sourceSheetId, insertSheetIndex, and newSheetName",
+      "Read the new tab's sheetId from replies[].duplicateSheet.properties.sheetId",
+      "To copy into a DIFFERENT spreadsheet, use spreadsheets.sheets.copyTo instead",
+      "Duplicated formulas keep their relative/absolute references as in the source"
+    ],
+    "tags": [
+      "duplicate-sheet",
+      "template",
+      "batchUpdate",
+      "structural"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/request#duplicatesheetrequest"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "rename a tab or move its position",
+      "change sheet title/index/tab color via API",
+      "UpdateSheetPropertiesRequest"
+    ],
+    "root_cause": "Sheet-level properties (title, index/position, tabColor, gridProperties, hidden) are changed with an UpdateSheetPropertiesRequest plus a fields mask naming what to update.",
+    "fix": [
+      "Send batchUpdate updateSheetProperties with properties.{sheetId,title} and fields:'title'",
+      "Always include a fields mask listing exactly which properties change",
+      "Set properties.index to reorder tabs, tabColorStyle for tab color, hidden:true to hide",
+      "Adjust gridProperties.frozenRowCount here to freeze header rows"
+    ],
+    "tags": [
+      "rename-sheet",
+      "sheet-properties",
+      "tab-color",
+      "batchUpdate",
+      "structural"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/request#updatesheetpropertiesrequest"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "batchUpdate request needs a sheetId but I only have the tab name",
+      "how to get the gid for a sheet",
+      "convert sheet title to sheetId"
+    ],
+    "root_cause": "Structural batchUpdate requests target sheets by numeric sheetId (gid), not by title. You must look up the sheetId for a given title first.",
+    "fix": [
+      "Call spreadsheets.get with fields='sheets.properties(sheetId,title)' and map title -> sheetId",
+      "The gid also appears in the sheet URL after #gid= when a tab is open",
+      "Cache the mapping but refresh it if tabs may be added/renamed",
+      "values.* endpoints use A1 names, while batchUpdate structural requests use sheetId"
+    ],
+    "tags": [
+      "sheetId",
+      "gid",
+      "sheet-name",
+      "spreadsheets-get"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/guides/concepts#sheet_id"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "copy a sheet into another spreadsheet",
+      "move/clone a tab to a different file",
+      "sheets.copyTo"
+    ],
+    "root_cause": "spreadsheets.sheets.copyTo copies a single sheet from one spreadsheet into another, returning the new sheet's properties in the destination.",
+    "fix": [
+      "Call spreadsheets.sheets.copyTo with the source spreadsheetId, source sheetId, and destinationSpreadsheetId in the body",
+      "The copied tab is appended to the destination; rename/reposition it with a follow-up updateSheetProperties",
+      "The caller (or service account) needs read on the source and write on the destination",
+      "Cross-file formulas referencing the old file may break — review IMPORTRANGE/links after copying"
+    ],
+    "tags": [
+      "copyTo",
+      "cross-spreadsheet",
+      "clone-sheet"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets.sheets/copyTo"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "insert rows or columns at a position",
+      "shift existing data down/right to make room",
+      "InsertDimensionRequest"
+    ],
+    "root_cause": "InsertDimensionRequest inserts blank rows or columns at a 0-based index, shifting existing cells. This differs from append, which adds at the end.",
+    "fix": [
+      "Send batchUpdate insertDimension with range:{sheetId,dimension:'ROWS',startIndex,endIndex}",
+      "Indices are 0-based and end-exclusive: startIndex=2,endIndex=4 inserts 2 rows before row 3",
+      "Use inheritFromBefore to copy formatting from the adjacent row/column",
+      "For columns set dimension:'COLUMNS'"
+    ],
+    "tags": [
+      "insert-rows",
+      "insert-columns",
+      "insertDimension",
+      "structural"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/request#insertdimensionrequest"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "delete specific rows or columns",
+      "remove rows and shift remaining up",
+      "DeleteDimensionRequest"
+    ],
+    "root_cause": "DeleteDimensionRequest deletes rows or columns by 0-based, end-exclusive index, shifting subsequent cells. Use it instead of values.clear when you want to remove the rows themselves.",
+    "fix": [
+      "Send batchUpdate deleteDimension with range:{sheetId,dimension:'ROWS',startIndex,endIndex}",
+      "Delete from the bottom up when removing multiple non-contiguous rows so indices don't shift mid-batch",
+      "values.clear only blanks cells; deleteDimension removes the row/column structure",
+      "Indices are 0-based and end-exclusive"
+    ],
+    "tags": [
+      "delete-rows",
+      "delete-columns",
+      "deleteDimension",
+      "structural"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/request#deletedimensionrequest"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "add empty rows/columns at the end of a sheet",
+      "grow the grid size",
+      "AppendDimensionRequest"
+    ],
+    "root_cause": "AppendDimensionRequest adds blank rows or columns to the end of a sheet, growing its grid. Useful before writing beyond the current grid bounds.",
+    "fix": [
+      "Send batchUpdate appendDimension with {sheetId,dimension:'ROWS',length:N}",
+      "Append rows first if a write would exceed the current rowCount (or rely on values.append auto-grow)",
+      "Use dimension:'COLUMNS' to widen the grid",
+      "Sheets enforce a 10 million cell limit across the whole spreadsheet"
+    ],
+    "tags": [
+      "append-dimension",
+      "grid-size",
+      "structural"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/request#appenddimensionrequest"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "set column width or row height",
+      "make a column wider via API",
+      "UpdateDimensionPropertiesRequest"
+    ],
+    "root_cause": "Column widths and row heights are set with UpdateDimensionPropertiesRequest, specifying pixelSize and a fields mask.",
+    "fix": [
+      "Send batchUpdate updateDimensionProperties with range (sheetId, dimension, start/end index), properties.pixelSize, fields:'pixelSize'",
+      "Set dimension:'COLUMNS' for width or 'ROWS' for height",
+      "To fit content automatically instead of a fixed size, use AutoResizeDimensionsRequest",
+      "Indices are 0-based, end-exclusive"
+    ],
+    "tags": [
+      "column-width",
+      "row-height",
+      "updateDimensionProperties",
+      "structural"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/request#updatedimensionpropertiesrequest"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "hide or show rows or columns",
+      "collapse columns programmatically",
+      "hiddenByUser dimension property"
+    ],
+    "root_cause": "Hide rows/columns by setting the dimension property hiddenByUser=true via UpdateDimensionPropertiesRequest. This affects how append/table detection sees the data.",
+    "fix": [
+      "Send updateDimensionProperties with properties.hiddenByUser=true and fields:'hiddenByUser'",
+      "Set it back to false to unhide",
+      "Beware: hidden rows can shift where values.append detects the end of a table",
+      "To group/collapse instead, use AddDimensionGroupRequest with collapsed state"
+    ],
+    "tags": [
+      "hide-rows",
+      "hide-columns",
+      "hiddenByUser",
+      "structural"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/request#updatedimensionpropertiesrequest"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "freeze the header row so it stays visible",
+      "freeze columns when scrolling",
+      "frozenRowCount / frozenColumnCount"
+    ],
+    "root_cause": "Frozen rows/columns are a grid property set via UpdateSheetPropertiesRequest with gridProperties.frozenRowCount / frozenColumnCount.",
+    "fix": [
+      "Send updateSheetProperties with properties.gridProperties.frozenRowCount=1 and fields:'gridProperties.frozenRowCount'",
+      "Use frozenColumnCount to freeze leading columns",
+      "Set the fields mask precisely so other gridProperties aren't reset",
+      "Freezing is purely visual and does not change data ranges"
+    ],
+    "tags": [
+      "freeze-rows",
+      "frozen-columns",
+      "gridProperties",
+      "structural"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets#GridProperties"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "merge a group of cells",
+      "create a merged header cell",
+      "MergeCellsRequest"
+    ],
+    "root_cause": "MergeCellsRequest merges a range into one cell (MERGE_ALL, MERGE_COLUMNS, or MERGE_ROWS). UnmergeCellsRequest reverses it.",
+    "fix": [
+      "Send batchUpdate mergeCells with range (gridRange) and mergeType:'MERGE_ALL'",
+      "Only the top-left cell's value is kept; others are cleared on merge",
+      "Use MERGE_COLUMNS/MERGE_ROWS to merge within each row/column of the range",
+      "Reverse with unmergeCells over the same range"
+    ],
+    "tags": [
+      "merge-cells",
+      "mergeCells",
+      "structural",
+      "formatting"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/request#mergecellsrequest"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "my batchUpdate writes to the wrong cells / off by one row",
+      "gridRange indices seem shifted",
+      "0-based start inclusive end exclusive confusion"
+    ],
+    "root_cause": "Unlike A1 notation (1-based), structural batchUpdate requests use GridRange with 0-based indices where startIndex is inclusive and endIndex is exclusive. Mixing the two conventions causes off-by-one errors.",
+    "fix": [
+      "Remember GridRange is 0-based: row 1 / column A is index 0",
+      "endRowIndex/endColumnIndex are EXCLUSIVE: A1:B2 is startRow 0,endRow 2,startCol 0,endCol 2",
+      "Omitting an end index means 'to the end of the grid'",
+      "Use A1 notation for values.* and GridRange for batchUpdate structural requests — don't conflate them"
+    ],
+    "tags": [
+      "gridRange",
+      "off-by-one",
+      "0-based",
+      "indices",
+      "batchUpdate"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets#GridRange"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "change cell background color, font, bold, alignment",
+      "format cells via the API",
+      "repeatCell with CellFormat"
+    ],
+    "root_cause": "Cell formatting is applied with a RepeatCellRequest (or UpdateCellsRequest), setting userEnteredFormat and a fields mask of exactly which format properties to change.",
+    "fix": [
+      "Send batchUpdate repeatCell with range, cell.userEnteredFormat.{backgroundColorStyle,textFormat,horizontalAlignment}",
+      "Set fields to the precise paths, e.g. 'userEnteredFormat(backgroundColorStyle,textFormat.bold)'",
+      "RepeatCell tiles one format across the whole range; UpdateCells sets per-cell values+format",
+      "Use Color/ColorStyle objects with 0..1 RGB components, not 0..255"
+    ],
+    "tags": [
+      "formatting",
+      "repeatCell",
+      "cell-format",
+      "background-color",
+      "structural"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/samples/formatting"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "apply a number, date, or currency format to cells",
+      "show values as $ or percentage",
+      "numberFormat via API"
+    ],
+    "root_cause": "Number/date/currency display is controlled by userEnteredFormat.numberFormat (type + pattern), applied with repeatCell. The stored value is unchanged; only display formatting changes.",
+    "fix": [
+      "Send repeatCell with userEnteredFormat.numberFormat={type:'CURRENCY',pattern:'$#,##0.00'} and fields:'userEnteredFormat.numberFormat'",
+      "Use type PERCENT, DATE, TIME, DATE_TIME, SCIENTIFIC, or NUMBER with an appropriate pattern",
+      "Formatting affects FORMATTED_VALUE reads but not UNFORMATTED_VALUE",
+      "Patterns follow the Sheets number format token syntax"
+    ],
+    "tags": [
+      "numberFormat",
+      "currency",
+      "percentage",
+      "date-format",
+      "formatting"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/guides/formats"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "add borders to a range of cells",
+      "draw a box/grid around cells",
+      "UpdateBordersRequest"
+    ],
+    "root_cause": "Borders are set with UpdateBordersRequest, specifying top/bottom/left/right/innerHorizontal/innerVertical border styles for a range.",
+    "fix": [
+      "Send batchUpdate updateBorders with range and the border objects (style SOLID/DASHED, colorStyle, width)",
+      "Use innerHorizontal/innerVertical to draw gridlines between cells in the range",
+      "Omit a side to leave it unchanged; set style:'NONE' to remove a border",
+      "Borders are formatting and persist independent of cell values"
+    ],
+    "tags": [
+      "borders",
+      "updateBorders",
+      "formatting",
+      "structural"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/request#updatebordersrequest"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "highlight cells based on their value",
+      "apply conditional formatting via API",
+      "AddConditionalFormatRuleRequest"
+    ],
+    "root_cause": "Conditional formatting is added with AddConditionalFormatRuleRequest: a rule with ranges and either a BooleanRule (condition + format) or a GradientRule (color scale).",
+    "fix": [
+      "Send batchUpdate addConditionalFormatRule with rule.ranges and rule.booleanRule.{condition,format}",
+      "Use condition types like NUMBER_GREATER, TEXT_CONTAINS, or CUSTOM_FORMULA",
+      "For color scales use rule.gradientRule with minpoint/midpoint/maxpoint",
+      "Set rule.index to control evaluation order among multiple rules"
+    ],
+    "tags": [
+      "conditional-formatting",
+      "booleanRule",
+      "gradientRule",
+      "formatting"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/samples/conditional-formatting"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "create a dropdown list in cells",
+      "restrict cell input to a set of values",
+      "SetDataValidationRequest dropdown"
+    ],
+    "root_cause": "Dropdowns are data validation rules with a ONE_OF_LIST condition (or ONE_OF_RANGE), applied via SetDataValidationRequest. showCustomUi=true renders the dropdown chip.",
+    "fix": [
+      "Send batchUpdate setDataValidation with rule.condition={type:'ONE_OF_LIST',values:[{userEnteredValue:'A'},...]} and showCustomUi:true",
+      "Use ONE_OF_RANGE to source options from another range",
+      "Set strict:true to reject invalid entries, or false to warn only",
+      "Clear validation by sending setDataValidation with no rule over the range"
+    ],
+    "tags": [
+      "dropdown",
+      "data-validation",
+      "ONE_OF_LIST",
+      "structural"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/request#setdatavalidationrequest"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "protect a range or sheet from edits",
+      "lock cells so only some users can change them",
+      "AddProtectedRangeRequest"
+    ],
+    "root_cause": "Protected ranges restrict who can edit a range or whole sheet. Add them with AddProtectedRangeRequest; warningOnly shows a prompt instead of blocking.",
+    "fix": [
+      "Send batchUpdate addProtectedRange with protectedRange.{range or sheetId} and editors.users",
+      "Set warningOnly:true for a soft warning instead of hard enforcement",
+      "Use unprotectedRanges on a sheet-level protection to allow edits in specific cells only",
+      "A service account editing a protected range must itself be listed as an editor"
+    ],
+    "tags": [
+      "protected-range",
+      "permissions",
+      "addProtectedRange",
+      "structural"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/request#addprotectedrangerequest"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "create a named range for stable references",
+      "refer to a range by name",
+      "AddNamedRangeRequest"
+    ],
+    "root_cause": "Named ranges give a stable, human-friendly handle to a range that survives row/column edits, set via AddNamedRangeRequest and usable in formulas and DataFilters.",
+    "fix": [
+      "Send batchUpdate addNamedRange with namedRange.{name,range}",
+      "Reference the name in formulas and in some API DataFilters",
+      "Update or delete with updateNamedRange / deleteNamedRange and the namedRangeId",
+      "Prefer named ranges or developer metadata over hardcoded A1 strings for resilience"
+    ],
+    "tags": [
+      "named-range",
+      "addNamedRange",
+      "references",
+      "structural"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/request#addnamedrangerequest"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "sort a range of data via the API",
+      "order rows by a column programmatically",
+      "SortRangeRequest"
+    ],
+    "root_cause": "SortRangeRequest sorts the rows of a range by one or more columns (each with sortOrder ASC/DESC). It rearranges values in place.",
+    "fix": [
+      "Send batchUpdate sortRange with range and sortSpecs:[{dimensionIndex,sortOrder}]",
+      "dimensionIndex is the 0-based column index relative to the sheet",
+      "Exclude the header row from the range, or it will be sorted in",
+      "Multiple sortSpecs apply as primary, secondary, etc."
+    ],
+    "tags": [
+      "sort",
+      "sortRange",
+      "structural"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/request#sortrangerequest"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "add a filter to a sheet via the API",
+      "create a basic filter or filter view",
+      "SetBasicFilterRequest"
+    ],
+    "root_cause": "A sheet can have one basic filter (SetBasicFilterRequest) plus multiple saved filter views (AddFilterViewRequest). Basic filters affect everyone; filter views are per-saved-view.",
+    "fix": [
+      "Send batchUpdate setBasicFilter with filter.{range,sortSpecs,criteria}",
+      "Use addFilterView for named, non-destructive views that don't change others' display",
+      "Filter criteria can hide values or use conditions (e.g., hide blanks)",
+      "Remove the basic filter with clearBasicFilter"
+    ],
+    "tags": [
+      "filter",
+      "basic-filter",
+      "filter-view",
+      "structural"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/request#setbasicfilterrequest"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "find and replace text across the spreadsheet via API",
+      "bulk replace values",
+      "FindReplaceRequest"
+    ],
+    "root_cause": "FindReplaceRequest performs find/replace across a range, sheet, or the whole spreadsheet, with options for match case, whole word, regex, and searching formulas.",
+    "fix": [
+      "Send batchUpdate findReplace with {find,replacement} plus a scope (range, sheetId, or allSheets:true)",
+      "Set matchCase, matchEntireCell, or searchByRegex as needed",
+      "Use includeFormulas:true to also replace inside formula text",
+      "Read occurrencesChanged/valuesChanged from the reply to confirm impact"
+    ],
+    "tags": [
+      "find-replace",
+      "findReplace",
+      "bulk-edit",
+      "structural"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/request#findreplacerequest"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "auto-resize columns to fit content",
+      "stop columns from truncating text",
+      "AutoResizeDimensionsRequest"
+    ],
+    "root_cause": "AutoResizeDimensionsRequest sizes columns (or rows) to fit their content, equivalent to double-clicking a column border.",
+    "fix": [
+      "Send batchUpdate autoResizeDimensions with dimensions:{sheetId,dimension:'COLUMNS',startIndex,endIndex}",
+      "Run it after writing data so widths reflect the new content",
+      "For a fixed width instead, use updateDimensionProperties with pixelSize",
+      "Auto-resize only affects display width, not the data"
+    ],
+    "tags": [
+      "auto-resize",
+      "column-width",
+      "autoResizeDimensions",
+      "structural"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/request#autoresizedimensionsrequest"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "group rows or columns to collapse them",
+      "create an outline/grouping via API",
+      "AddDimensionGroupRequest"
+    ],
+    "root_cause": "AddDimensionGroupRequest creates a collapsible group over a row/column range. UpdateDimensionGroupRequest toggles the collapsed state.",
+    "fix": [
+      "Send batchUpdate addDimensionGroup with range:{sheetId,dimension:'ROWS',startIndex,endIndex}",
+      "Collapse/expand by sending updateDimensionGroup with dimensionGroup.collapsed=true/false",
+      "Nest groups by adding overlapping ranges at different depths",
+      "Remove with deleteDimensionGroup"
+    ],
+    "tags": [
+      "group-rows",
+      "outline",
+      "addDimensionGroup",
+      "structural"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/request#adddimensiongrouprequest"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "add a chart to a sheet via the API",
+      "create a graph programmatically",
+      "AddChartRequest"
+    ],
+    "root_cause": "Charts are added with AddChartRequest, defining a ChartSpec (type, domains, series) and a position (overlay on a sheet or its own sheet).",
+    "fix": [
+      "Send batchUpdate addChart with chart.spec (e.g., basicChart) and chart.position.overlayPosition",
+      "Reference data via sources sourceRange with gridRanges for domains and series",
+      "Read the new chartId from replies[].addChart.chart.chartId",
+      "Update later with updateChartSpec or move/resize with updateEmbeddedObjectPosition"
+    ],
+    "tags": [
+      "charts",
+      "addChart",
+      "chartSpec",
+      "structural"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/samples/charts"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "how to keep stable references when rows/columns move",
+      "A1 references break when users edit the sheet",
+      "developer metadata for stable anchors"
+    ],
+    "root_cause": "Developer metadata attaches key/value tags to rows, columns, sheets, or the spreadsheet that move with the data, letting you locate ranges even after edits — more robust than A1 strings.",
+    "fix": [
+      "Create metadata with CreateDeveloperMetadataRequest, associating a key/value with a location (row/column/sheet)",
+      "Look up tagged locations later via batchGetByDataFilter/batchUpdateByDataFilter with developerMetadataLookup",
+      "Use it for app-managed anchors (e.g., 'invoice_total_row') that survive insert/delete",
+      "Metadata visibility can be DOCUMENT or PROJECT scoped"
+    ],
+    "tags": [
+      "developer-metadata",
+      "stable-references",
+      "anchors",
+      "data-filter"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/guides/metadata"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "set text wrapping, rotation, or vertical alignment",
+      "make long text wrap in a cell",
+      "wrapStrategy and alignment"
+    ],
+    "root_cause": "Text wrapping (wrapStrategy), rotation (textRotation), and alignment are part of userEnteredFormat, applied with repeatCell and a fields mask.",
+    "fix": [
+      "Send repeatCell with userEnteredFormat.wrapStrategy='WRAP' and fields:'userEnteredFormat.wrapStrategy'",
+      "Use horizontalAlignment/verticalAlignment for cell alignment",
+      "Set textRotation.angle or textRotation.vertical for rotated headers",
+      "Combine multiple format paths in one fields mask to apply them together"
+    ],
+    "tags": [
+      "text-wrap",
+      "alignment",
+      "rotation",
+      "formatting",
+      "repeatCell"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/cells#CellFormat"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "add a note/comment to a cell via API",
+      "set the hover note on a cell",
+      "UpdateCellsRequest note field"
+    ],
+    "root_cause": "Cell notes (the small hover annotations, distinct from threaded comments) are set via UpdateCellsRequest with the 'note' field and a fields mask of 'note'.",
+    "fix": [
+      "Send batchUpdate updateCells with rows[].values[].note and fields:'note' over the target range",
+      "Notes are different from threaded comments, which are managed via the Drive API, not Sheets API",
+      "Clear a note by sending an empty note with fields:'note'",
+      "Read notes back via spreadsheets.get includeGridData (the 'note' field)"
+    ],
+    "tags": [
+      "notes",
+      "updateCells",
+      "annotations",
+      "write-data"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/cells#CellData"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "alternating row colors / banding via API",
+      "apply a table style with striped rows",
+      "AddBandingRequest"
+    ],
+    "root_cause": "Banded ranges (alternating colors) are created with AddBandingRequest, defining header/first/second band colors over a range.",
+    "fix": [
+      "Send batchUpdate addBanding with bandedRange.{range,rowProperties:{headerColorStyle,firstBandColorStyle,secondBandColorStyle}}",
+      "Use columnProperties for vertical banding instead of rows",
+      "Read the bandedRangeId from the reply to update/delete later",
+      "Banding is purely visual styling over the range"
+    ],
+    "tags": [
+      "banding",
+      "alternating-colors",
+      "addBanding",
+      "formatting"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/request#addbandingrequest"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "dates/times parse in the wrong timezone or locale",
+      "set the spreadsheet's locale and timezone",
+      "UpdateSpreadsheetPropertiesRequest"
+    ],
+    "root_cause": "The spreadsheet's locale and timeZone govern how USER_ENTERED values are parsed and how dates/serials are interpreted. Set them explicitly rather than relying on defaults.",
+    "fix": [
+      "Send batchUpdate updateSpreadsheetProperties with properties.{locale,timeZone} and fields:'locale,timeZone'",
+      "locale (e.g., 'en_US') affects decimal/date parsing; timeZone (IANA) affects NOW()/date serials",
+      "Set these at create time via spreadsheets.create properties to avoid re-parsing surprises",
+      "Confirm current settings via spreadsheets.get properties"
+    ],
+    "tags": [
+      "locale",
+      "timezone",
+      "spreadsheet-properties",
+      "configuration"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets#SpreadsheetProperties"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "export a spreadsheet as CSV, PDF, or XLSX",
+      "download Sheet data in another format",
+      "Drive files.export for Sheets"
+    ],
+    "root_cause": "The Sheets API itself returns JSON only. To export to CSV/PDF/XLSX, use the Drive API export (or the export URL), since a Google Sheet is a Drive file.",
+    "fix": [
+      "Use Drive files.export with mimeType 'text/csv', 'application/pdf', or the XLSX mime type",
+      "CSV export returns only the first sheet; use the gid export URL to pick a specific tab",
+      "For programmatic CSV of one tab: https://docs.google.com/spreadsheets/d/<id>/export?format=csv&gid=<gid> (with auth)",
+      "Large files may need export via files.export with appropriate scopes (drive.readonly)"
+    ],
+    "tags": [
+      "export",
+      "csv",
+      "pdf",
+      "xlsx",
+      "drive-api"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/drive/api/guides/manage-downloads#export_a_google_workspace_document"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "bulk paste a CSV/TSV blob into a sheet",
+      "import delimited text in one request",
+      "PasteDataRequest"
+    ],
+    "root_cause": "PasteDataRequest pastes a raw delimited string (CSV/TSV/custom) starting at a coordinate, letting Sheets parse it into cells in a single request instead of building a 2D array.",
+    "fix": [
+      "Send batchUpdate pasteData with coordinate, data (the raw string), delimiter, and type:'PASTE_NORMAL'",
+      "Set the delimiter (',' or '\\t') to match your data",
+      "Use html:true to paste an HTML table instead of delimited text",
+      "For typical structured writes, values.update/append with a 2D array is simpler"
+    ],
+    "tags": [
+      "paste-data",
+      "csv-import",
+      "pasteData",
+      "write-data"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets/request#pastedatarequest"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "share a spreadsheet with a user via the API",
+      "grant access programmatically",
+      "Drive permissions.create for Sheets"
+    ],
+    "root_cause": "Sharing is a Drive concept, not a Sheets API call. Use the Drive API permissions.create to grant a user/group/domain access to the spreadsheet file.",
+    "fix": [
+      "Call Drive permissions.create on the spreadsheet's fileId with {type:'user',role:'writer',emailAddress}",
+      "Set sendNotificationEmail=false to share silently",
+      "A service account that owns a created sheet can share it with humans this way",
+      "Requires a Drive scope (e.g., drive.file or drive) in addition to Sheets scopes"
+    ],
+    "tags": [
+      "sharing",
+      "drive-api",
+      "permissions",
+      "service-account"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/drive/api/reference/rest/v3/permissions/create"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "list or search for spreadsheets a service account can access",
+      "find all Google Sheets in a folder",
+      "Drive files.list for spreadsheets"
+    ],
+    "root_cause": "The Sheets API can only open a known spreadsheetId. To discover spreadsheets, query the Drive API files.list filtering by the Sheets MIME type.",
+    "fix": [
+      "Call Drive files.list with q=\"mimeType='application/vnd.google-apps.spreadsheet'\"",
+      "Add parent filters like q+=\" and '<folderId>' in parents\" to scope to a folder",
+      "Page through results with pageToken; request fields='files(id,name,modifiedTime)'",
+      "Requires a Drive scope; the account must have access to the files to see them"
+    ],
+    "tags": [
+      "drive-api",
+      "list-spreadsheets",
+      "search",
+      "files-list"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/drive/api/guides/search-files"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "how to get notified when a spreadsheet changes",
+      "Sheets has no native webhook on edit",
+      "detect edits programmatically"
+    ],
+    "root_cause": "The Sheets API has no push notification/webhook for edits. To react to changes, use the Drive Changes API/watch on the file, or an Apps Script installable onEdit trigger.",
+    "fix": [
+      "For change detection, use Drive files.watch / Changes API to get notifications when the file is modified",
+      "For cell-level edit logic, use an Apps Script onEdit/installable trigger bound to the spreadsheet",
+      "Polling spreadsheets.get modifiedTime (via Drive) is a simpler but less timely fallback",
+      "There is no equivalent of Calendar's events.watch in the Sheets API itself"
+    ],
+    "tags": [
+      "webhooks",
+      "drive-changes",
+      "apps-script",
+      "onEdit",
+      "notifications"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/drive/api/guides/push"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "how to stay under Sheets API rate limits",
+      "429 RESOURCE_EXHAUSTED on Sheets",
+      "quota per minute for Sheets"
+    ],
+    "root_cause": "Sheets API quotas are per-minute and split read/write, applied per project and per user (commonly 300/min/project and 60/min/user per category). Bursts of single-cell calls exhaust them fast.",
+    "fix": [
+      "Batch aggressively: values.batchGet/batchUpdate and spreadsheets.batchUpdate instead of many single calls",
+      "Implement exponential backoff with jitter on 429/RESOURCE_EXHAUSTED (start ~1s)",
+      "Cache reads and debounce writes; coalesce edits into one batch per cycle",
+      "If sustained load is high, request a quota increase in the Cloud Console"
+    ],
+    "tags": [
+      "rate-limiting",
+      "quota",
+      "429",
+      "backoff",
+      "batch-operations"
+    ],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/limits"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "intermittent 500/503 errors from the Sheets API",
+      "backendError / internal error on writes",
+      "transient Sheets failures"
+    ],
+    "root_cause": "5xx responses (500 internal, 503 unavailable) are usually transient. They should be retried with exponential backoff; non-idempotent appends need care to avoid duplicates.",
+    "fix": [
+      "Retry 500/503 with exponential backoff and jitter, capping total attempts",
+      "For values.append (non-idempotent), verify whether the write landed before retrying to avoid duplicate rows",
+      "Prefer values.update (idempotent for a fixed range) when retries are likely",
+      "Log the request and response for repeated failures and check the Google Workspace status dashboard"
+    ],
+    "tags": [
+      "500-error",
+      "503-error",
+      "backoff",
+      "retry",
+      "transient"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/limits"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "error",
+    "symptoms": [
+      "This action would increase the number of cells beyond the limit",
+      "10 million cell limit error",
+      "cannot add more rows/columns"
+    ],
+    "root_cause": "A single spreadsheet is capped at 10 million cells across all sheets. Oversized default grids (e.g., many sheets each with thousands of empty columns) hit the limit even with little data.",
+    "fix": [
+      "Trim oversized empty grids: delete unused columns/rows with DeleteDimensionRequest",
+      "Create sheets with modest gridProperties (e.g., 26 columns) instead of the default large grid",
+      "Split very large datasets across multiple spreadsheets, or use a real database",
+      "Avoid appending columns far beyond your data, which silently consumes the cell budget"
+    ],
+    "tags": [
+      "cell-limit",
+      "10-million",
+      "grid-size",
+      "limits"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://support.google.com/drive/answer/37603"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "IMPORTRANGE shows #REF! and cannot be approved via API",
+      "linking sheets with IMPORTRANGE needs manual permission",
+      "automate IMPORTRANGE access"
+    ],
+    "root_cause": "IMPORTRANGE requires a one-time interactive permission grant between the two spreadsheets. There is no Sheets API method to approve that access grant programmatically.",
+    "fix": [
+      "Approve the IMPORTRANGE link once manually in the UI (the #REF! prompt → Allow access)",
+      "Alternatively, share both files with the same identity and read both via the API, joining data in your code instead of IMPORTRANGE",
+      "For service-account pipelines, fetch each source with values.get and combine server-side",
+      "Document that the IMPORTRANGE grant is a manual prerequisite"
+    ],
+    "tags": [
+      "importrange",
+      "cross-spreadsheet",
+      "permissions",
+      "#ref"
+    ],
+    "severity": "medium",
+    "frequency": "rare",
+    "related_docs": [
+      "https://support.google.com/docs/answer/3093340"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "batchUpdate payload too large / 413 or timeouts",
+      "how many ranges per batch",
+      "splitting large Sheets writes"
+    ],
+    "root_cause": "Each batch request is bounded by a ~10MB payload and practical per-request limits (commonly ~100 ranges). Oversized batches fail or time out and should be chunked.",
+    "fix": [
+      "Keep each values.batchUpdate to roughly 100 ranges and under ~10MB total",
+      "Chunk large writes into multiple sequential batches with backoff between them",
+      "Prefer fewer, well-sized batches over thousands of tiny calls (quota) or one giant call (size)",
+      "Compress wide writes by sending only changed ranges rather than the whole sheet"
+    ],
+    "tags": [
+      "batch-size",
+      "payload-limit",
+      "chunking",
+      "performance"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/limits"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "two writers overwrite each other's changes in a sheet",
+      "no etag / optimistic locking in Sheets API",
+      "lost updates with concurrent writers"
+    ],
+    "root_cause": "Unlike Calendar, the Sheets API has no etag/If-Match concurrency control on values; concurrent writes are last-write-wins, so overlapping updates silently clobber each other.",
+    "fix": [
+      "Serialize writes per spreadsheet in your application (a queue/lock) to avoid races",
+      "Write to disjoint ranges per worker so updates don't overlap",
+      "Use protected ranges or developer-metadata anchors to coordinate ownership of regions",
+      "For true transactional needs, use a database and sync to Sheets, rather than Sheets as the source of truth"
+    ],
+    "tags": [
+      "concurrency",
+      "last-write-wins",
+      "locking",
+      "write-data"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/guides/values"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "read a sheet into a pandas DataFrame",
+      "load Google Sheet data for analysis in Python",
+      "gspread / pandas integration"
+    ],
+    "root_cause": "A common Python pattern is to read values via gspread or the googleapis client and build a DataFrame, treating row 1 as headers.",
+    "fix": [
+      "With gspread: ws.get_all_records() returns a list of dicts (header-keyed) ready for pd.DataFrame",
+      "With google-api-python-client: values.get then pd.DataFrame(rows[1:], columns=rows[0])",
+      "Use valueRenderOption=UNFORMATTED_VALUE for numeric analysis to avoid string-typed numbers",
+      "Pad short rows before constructing the DataFrame since trailing empty cells are omitted"
+    ],
+    "tags": [
+      "python",
+      "pandas",
+      "gspread",
+      "dataframe",
+      "read-data"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://docs.gspread.org/en/latest/"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "googleapis Node client setup for Sheets",
+      "how to authenticate the Node sheets client",
+      "google.sheets v4 client initialization"
+    ],
+    "root_cause": "The Node googleapis library needs an auth client (GoogleAuth/OAuth2/JWT) passed to google.sheets({version:'v4', auth}). Most setup errors are missing scopes or the wrong auth object.",
+    "fix": [
+      "Create auth with new google.auth.GoogleAuth({scopes:['https://www.googleapis.com/auth/spreadsheets']})",
+      "Pass it: const sheets = google.sheets({version:'v4', auth: await auth.getClient()})",
+      "Use the readonly scope (spreadsheets.readonly) if you only read, to reduce risk",
+      "For a service account, GoogleAuth picks up GOOGLE_APPLICATION_CREDENTIALS automatically"
+    ],
+    "tags": [
+      "nodejs",
+      "googleapis",
+      "client-setup",
+      "authentication"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/quickstart/nodejs"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "make a spreadsheet readable without OAuth",
+      "publish a sheet so an API key can read it",
+      "public sharing for API access"
+    ],
+    "root_cause": "To let an API key (or anonymous client) read a sheet, the file must be shared as 'Anyone with the link can view'. 'Publish to web' is separate and mainly affects HTML/CSV publish endpoints.",
+    "fix": [
+      "Share the file via Drive permissions.create with type:'anyone', role:'reader' for link-based read access",
+      "Then the Sheets API can read it with an API key (no OAuth) for GET requests",
+      "Writes still require OAuth/service account regardless of sharing",
+      "Do not put sensitive data in a link-shared sheet — anyone with the link/key can read it"
+    ],
+    "tags": [
+      "public-sharing",
+      "api-key",
+      "read-data",
+      "drive-api"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/guides/authorizing"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "service account is Editor but writes still fail or hit owner's quota",
+      "service account owns created files unexpectedly",
+      "where do service-account-created sheets live"
+    ],
+    "root_cause": "A service account is a distinct identity with its own (hidden) Drive. Sheets it creates are owned by it and invisible to humans until shared; storage/quota and visibility follow ownership.",
+    "fix": [
+      "Share service-account-created files with a human or create them inside a Shared Drive for visibility and team ownership",
+      "Grant the service account Editor on existing user-owned sheets it must write to",
+      "Prefer Shared Drives so files aren't trapped in a service account's personal Drive",
+      "Remember the service account email is client_email in the JSON key"
+    ],
+    "tags": [
+      "service-account",
+      "ownership",
+      "shared-drive",
+      "visibility"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/guides/authorizing"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "append a row but keep formulas/formatting of the table",
+      "USER_ENTERED append so dates and formulas work",
+      "append with parsing"
+    ],
+    "root_cause": "values.append with valueInputOption=USER_ENTERED parses each appended cell (formulas, dates, numbers) and, with INSERT_ROWS, inserts new rows so existing formatting below is preserved.",
+    "fix": [
+      "Call values.append with valueInputOption=USER_ENTERED and insertDataOption=INSERT_ROWS",
+      "Anchor to a tight table range (e.g., 'Data!A1') so the table boundary is detected correctly",
+      "Send formula strings (=...) to have them evaluated rather than stored as text",
+      "Read updates.updatedRange from the response to know where the row landed"
+    ],
+    "tags": [
+      "values-append",
+      "USER_ENTERED",
+      "INSERT_ROWS",
+      "formulas",
+      "write-data"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets.values/append"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "formula names like SUM don't work when written from a non-English locale app",
+      "writing SOMME/SUMME via API fails",
+      "localized function names in API writes"
+    ],
+    "root_cause": "The Sheets API always expects English function names in formulas regardless of the spreadsheet's display locale; localized names (e.g., SOMME, SUMME) are not accepted on write.",
+    "fix": [
+      "Always write formulas with English function names (SUM, VLOOKUP, IF), even for non-English sheets",
+      "The UI may display localized names, but the API stores/accepts the English canonical names",
+      "Use ';' vs ',' argument separators per the API expectation (comma) — not the locale UI separator",
+      "If a formula errors on write, first verify the function name is the English canonical one"
+    ],
+    "tags": [
+      "formulas",
+      "locale",
+      "function-names",
+      "write-data"
+    ],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/guides/formats"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "update only the format of cells without touching values",
+      "change formatting but keep data",
+      "UpdateCellsRequest fields mask"
+    ],
+    "root_cause": "To change formatting without overwriting values, use repeatCell/updateCells with a fields mask that names only format paths (e.g., userEnteredFormat...) so values are left untouched.",
+    "fix": [
+      "Send repeatCell with only userEnteredFormat set and fields scoped to that format path",
+      "Do NOT include userEnteredValue in the fields mask, or values will be cleared/overwritten",
+      "Conversely, to clear formatting only, set fields:'userEnteredFormat' with an empty format",
+      "The fields mask is what determines which properties are written"
+    ],
+    "tags": [
+      "formatting",
+      "fields-mask",
+      "updateCells",
+      "repeatCell"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/guides/field-masks"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "how to read a whole sheet efficiently in one call",
+      "avoid one request per row",
+      "minimize Sheets API calls"
+    ],
+    "root_cause": "Reading or writing cell-by-cell multiplies latency and burns quota. Read an entire range once, process in memory, and write back in a single batch.",
+    "fix": [
+      "Read the full data range in one values.get (e.g., 'Sheet1!A1:Z') instead of per-row gets",
+      "Process/transform in memory, then write back with one values.batchUpdate",
+      "Use batchGet for several disjoint ranges in a single request",
+      "Cache reads where data changes infrequently to avoid repeated calls"
+    ],
+    "tags": [
+      "performance",
+      "batch-operations",
+      "read-data",
+      "quota"
+    ],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/guides/values#reading"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "build the URL to open a specific cell or tab",
+      "deep link to a range in a spreadsheet",
+      "spreadsheet URL with gid and range"
+    ],
+    "root_cause": "You can construct a shareable URL that opens a specific tab and selects a range using the gid fragment and range parameter.",
+    "fix": [
+      "Base URL: https://docs.google.com/spreadsheets/d/<spreadsheetId>/edit",
+      "Open a specific tab with #gid=<sheetId>; the gid is the sheet's numeric sheetId",
+      "Select a range with #gid=<gid>&range=A1:B10",
+      "Get the gid from spreadsheets.get sheets.properties.sheetId"
+    ],
+    "tags": [
+      "url",
+      "deep-link",
+      "gid",
+      "range"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/guides/concepts"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "bug_fix",
+    "symptoms": [
+      "written emoji or unicode shows as ?? or mojibake",
+      "special characters corrupted in cells",
+      "encoding issues writing to Sheets"
+    ],
+    "root_cause": "The Sheets API is UTF-8 end to end; corrupted characters almost always come from the client encoding the payload incorrectly (wrong charset on the HTTP body or source data).",
+    "fix": [
+      "Ensure your HTTP client serializes the JSON body as UTF-8 (the default for most libraries)",
+      "Verify the source data is decoded correctly before sending (don't double-encode)",
+      "Emoji and non-Latin scripts are fully supported when the payload is valid UTF-8",
+      "If reading shows corruption, check your client's response decoding, not the API"
+    ],
+    "tags": [
+      "encoding",
+      "utf-8",
+      "unicode",
+      "emoji",
+      "write-data"
+    ],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": [
+      "https://developers.google.com/sheets/api/reference/rest/v4/spreadsheets.values/update"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "how to write to a sheet inside a Shared Drive with a service account",
+      "service account 404/permission on Shared Drive sheet",
+      "Shared Drive access for Sheets"
+    ],
+    "root_cause": "To operate on spreadsheets in a Shared Drive, the service account must be a member of that Shared Drive (or the file shared to it); plain file-sharing rules differ from My Drive.",
+    "fix": [
+      "Add the service account as a member of the Shared Drive (Content manager/Editor) for write access",
+      "Drive API calls listing such files need supportsAllDrives=true and includeItemsFromAllDrives=true",
+      "The Sheets API itself works once the account has access; access is the usual blocker",
+      "Prefer Shared Drives over personal Drive ownership for team-managed automation"
+    ],
+    "tags": [
+      "shared-drive",
+      "service-account",
+      "permissions",
+      "drive-api"
+    ],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": [
+      "https://developers.google.com/drive/api/guides/about-shareddrives"
+    ],
+    "version": "v4",
+    "stack": "google-sheets"
+  }
+]
