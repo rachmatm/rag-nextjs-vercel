@@ -1,0 +1,3824 @@
+[
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "unsure which package to install",
+      "confused between @xenova/transformers and @huggingface/transformers"
+    ],
+    "root_cause": "Transformers.js v3+ moved to the @huggingface/transformers npm scope. The legacy @xenova/transformers package is v2 and lacks WebGPU and the dtype quantization API.",
+    "fix": [
+      "For new projects install the v3 package: npm install @huggingface/transformers",
+      "Import as: import { pipeline } from '@huggingface/transformers'",
+      "Only fall back to @xenova/transformers if you need to ship code that already targets the v2 API surface"
+    ],
+    "tags": ["installation", "package", "v3", "huggingface"],
+    "severity": "low",
+    "frequency": "very-common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want a minimal hello-world",
+      "first time using pipeline()"
+    ],
+    "root_cause": "The pipeline() helper wraps tokenizer + model + post-processing for a task and is the recommended entry point for most use cases.",
+    "fix": [
+      "import { pipeline } from '@huggingface/transformers'",
+      "const classifier = await pipeline('sentiment-analysis')",
+      "const out = await classifier('I love Transformers.js!')",
+      "// out -> [{ label: 'POSITIVE', score: 0.999... }]"
+    ],
+    "tags": ["pipeline", "getting-started", "code-pattern"],
+    "severity": "low",
+    "frequency": "very-common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to choose a specific model instead of the task default",
+      "default model is too large or too small"
+    ],
+    "root_cause": "Each task has a default model on the Hub, but you usually want to pin an explicit one for reproducibility, smaller size, or quantization variant.",
+    "fix": [
+      "Pass a model id as the second argument: await pipeline('automatic-speech-recognition', 'onnx-community/whisper-base')",
+      "Pin a revision in production with the { revision: 'main' } option for reproducible loads",
+      "Browse onnx-community/* and Xenova/* on huggingface.co for ONNX-ready models"
+    ],
+    "tags": ["pipeline", "model-selection", "best-practice"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/onnx-community"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "want to load models from a local /models folder",
+      "production build must work offline"
+    ],
+    "root_cause": "By default Transformers.js fetches models from the Hugging Face Hub. For offline or pinned deployments you set env.allowLocalModels and env.localModelPath.",
+    "fix": [
+      "import { env } from '@huggingface/transformers'",
+      "env.allowLocalModels = true",
+      "env.allowRemoteModels = false",
+      "env.localModelPath = '/models/' // served from public/ in Next.js or static assets",
+      "Place ONNX files under public/models/<org>/<model>/onnx/ matching the Hub layout"
+    ],
+    "tags": ["env", "local-models", "offline", "configuration"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/env"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to disable remote model downloads",
+      "block accidental Hub fetches"
+    ],
+    "root_cause": "env.allowRemoteModels controls whether the runtime is allowed to reach out to huggingface.co. Disable it when you ship all weights with your app.",
+    "fix": [
+      "env.allowRemoteModels = false",
+      "Combine with env.allowLocalModels = true and env.localModelPath",
+      "Verify the network panel shows zero requests to huggingface.co after the first cold load"
+    ],
+    "tags": ["env", "remote-models", "privacy", "configuration"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/env"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to choose between WebGPU and WASM",
+      "model is too slow on CPU"
+    ],
+    "root_cause": "Transformers.js v3 supports a `device` option that selects the ONNX Runtime Web execution provider. WebGPU is much faster than WASM but is not available on every browser/GPU.",
+    "fix": [
+      "Try WebGPU first: await pipeline(task, model, { device: 'webgpu' })",
+      "Fall back to WASM if WebGPU init fails: catch the error and re-create with { device: 'wasm' }",
+      "Feature-detect: if (!('gpu' in navigator)) use 'wasm'"
+    ],
+    "tags": ["webgpu", "wasm", "device", "backend"],
+    "severity": "medium",
+    "frequency": "very-common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/guides/webgpu"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to pick a quantization level",
+      "model file is too large to download"
+    ],
+    "root_cause": "v3 exposes a `dtype` option that selects which quantized variant of the ONNX model to download (q4, q8, fp16, fp32). Lower precision means smaller download and faster CPU inference at some accuracy cost.",
+    "fix": [
+      "await pipeline(task, model, { dtype: 'q8' }) // ~4x smaller than fp32, good default",
+      "For tiny CPUs try 'q4' (smallest) and measure quality regression",
+      "Use 'fp16' on WebGPU for the best speed/accuracy trade-off"
+    ],
+    "tags": ["dtype", "quantization", "model-size", "code-pattern"],
+    "severity": "low",
+    "frequency": "very-common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/guides/dtypes"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want different dtypes per encoder/decoder",
+      "encoder is fine in fp16 but decoder needs q4"
+    ],
+    "root_cause": "Encoder-decoder models (Whisper, T5, BART) accept a dtype map so you can quantize each submodule separately.",
+    "fix": [
+      "await pipeline('automatic-speech-recognition', 'onnx-community/whisper-base', { dtype: { encoder_model: 'fp16', decoder_model_merged: 'q4' } })",
+      "Inspect <model>/onnx/ on the Hub to see which file names exist",
+      "Match map keys to filenames without the .onnx extension"
+    ],
+    "tags": ["dtype", "quantization", "encoder-decoder", "whisper"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/guides/dtypes"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want a progress bar while a model downloads",
+      "users sit on a blank screen during first load"
+    ],
+    "root_cause": "pipeline() and AutoModel.from_pretrained() accept a progress_callback that fires for every file fetch and progress update.",
+    "fix": [
+      "const pipe = await pipeline(task, model, { progress_callback: (p) => self.postMessage(p) })",
+      "p has shape { status: 'progress', file, progress, loaded, total }",
+      "Render a progress bar from p.progress (0..100)"
+    ],
+    "tags": ["progress-callback", "ux", "model-loading", "code-pattern"],
+    "severity": "low",
+    "frequency": "very-common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/utils/hub"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "model is loaded multiple times",
+      "memory grows on every call"
+    ],
+    "root_cause": "Each call to pipeline() loads weights again. Cache the resolved instance and reuse it across requests.",
+    "fix": [
+      "Use a singleton: let _pipe; export async function getPipe() { return _pipe ??= await pipeline(task, model) }",
+      "In a worker, hold the instance in module scope; never create per-message",
+      "Dispose the previous one with await pipe.dispose() before swapping models"
+    ],
+    "tags": ["singleton", "memory", "model-loading", "best-practice"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want text generation streaming token by token",
+      "long generation feels frozen"
+    ],
+    "root_cause": "Use TextStreamer to receive tokens as they are decoded; this is the canonical streaming UX for LLMs in the browser.",
+    "fix": [
+      "import { pipeline, TextStreamer } from '@huggingface/transformers'",
+      "const generator = await pipeline('text-generation', model, { dtype: 'q4', device: 'webgpu' })",
+      "const streamer = new TextStreamer(generator.tokenizer, { skip_prompt: true, callback_function: (txt) => self.postMessage({ type: 'token', txt }) })",
+      "await generator(prompt, { max_new_tokens: 256, streamer })"
+    ],
+    "tags": ["text-streamer", "streaming", "text-generation", "code-pattern"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/generation/streamers"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need image classification",
+      "want to label an uploaded photo"
+    ],
+    "root_cause": "The image-classification pipeline accepts URLs, Blobs, and HTMLImageElement directly via RawImage.",
+    "fix": [
+      "const classifier = await pipeline('image-classification', 'Xenova/vit-base-patch16-224')",
+      "const out = await classifier(imageUrlOrBlob, { topk: 5 })",
+      "For File objects: const url = URL.createObjectURL(file); call classifier(url); URL.revokeObjectURL(url) afterwards"
+    ],
+    "tags": ["image-classification", "vit", "pipeline", "code-pattern"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want sentence embeddings for similarity search",
+      "need to compute cosine similarity in the browser"
+    ],
+    "root_cause": "feature-extraction returns last hidden states; pass { pooling: 'mean', normalize: true } to get usable sentence embeddings.",
+    "fix": [
+      "const embed = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2')",
+      "const e = await embed('hello world', { pooling: 'mean', normalize: true })",
+      "Use e.data (Float32Array, 384 dims) directly with a dot product to compute cosine similarity"
+    ],
+    "tags": ["feature-extraction", "embeddings", "minilm", "similarity"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/Xenova/all-MiniLM-L6-v2"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want zero-shot text classification",
+      "no labelled data"
+    ],
+    "root_cause": "zero-shot-classification uses NLI models to score candidate labels for a sentence without fine-tuning.",
+    "fix": [
+      "const z = await pipeline('zero-shot-classification', 'Xenova/distilbert-base-uncased-mnli')",
+      "const out = await z('I love programming!', ['technology', 'sports', 'cooking'])",
+      "Set { multi_label: true } when more than one label may apply"
+    ],
+    "tags": ["zero-shot", "nli", "classification", "code-pattern"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want translation in the browser",
+      "need offline translation"
+    ],
+    "root_cause": "translation pipeline supports many language pairs via NLLB or marian models.",
+    "fix": [
+      "const translator = await pipeline('translation', 'Xenova/nllb-200-distilled-600M')",
+      "await translator('Hello, world!', { src_lang: 'eng_Latn', tgt_lang: 'fra_Latn' })",
+      "NLLB language codes use the FLORES-200 ISO 639-3 + script convention"
+    ],
+    "tags": ["translation", "nllb", "i18n", "code-pattern"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/Xenova/nllb-200-distilled-600M"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "first model load is very slow",
+      "cold start downloads gigabytes"
+    ],
+    "root_cause": "On the first run the runtime downloads the model and stores it in IndexedDB; subsequent loads are fast. Pick the smallest dtype that meets your accuracy bar to shrink the cold start.",
+    "fix": [
+      "Prefer q4 or q8 dtype for first-load critical paths",
+      "Show a progress UI and warm the model behind a 'Try the demo' click so users opt into the download",
+      "Preload weights from a service worker on idle if they are committed assets"
+    ],
+    "tags": ["cold-start", "indexeddb", "ux", "model-size"],
+    "severity": "medium",
+    "frequency": "very-common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/guides/dtypes"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "diagnostic_step",
+    "symptoms": [
+      "want to verify a model is being served from cache",
+      "not sure if IndexedDB is working"
+    ],
+    "root_cause": "Transformers.js stores weights in IndexedDB under a database named 'transformers-cache' (and Cache Storage for some versions). Watch the Network panel and Application > IndexedDB tab in DevTools.",
+    "fix": [
+      "DevTools > Network: cold load shows fetches to huggingface.co; second load shows 0 model requests",
+      "DevTools > Application > Storage > IndexedDB > transformers-cache to inspect cached files",
+      "Set env.useBrowserCache = true (default) to enable caching; set false to force every load to refetch"
+    ],
+    "tags": ["indexeddb", "cache", "diagnostic", "devtools"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/env"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "want to clear the cached models programmatically",
+      "users report stale model after upgrade"
+    ],
+    "root_cause": "Models are keyed by URL. Bumping the model id or revision invalidates the cache. You can also delete the IndexedDB database directly.",
+    "fix": [
+      "Pin a revision and bump it to roll users forward: { revision: '2024-06-01' }",
+      "To wipe everything: indexedDB.deleteDatabase('transformers-cache') and reload",
+      "Expose a 'Clear local model cache' button in the UI for support"
+    ],
+    "tags": ["cache-invalidation", "indexeddb", "configuration", "upgrade"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/utils/hub"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "error",
+    "symptoms": [
+      "Error: no available backend found. ERR: [wasm] backend not found",
+      "ONNX Runtime Web fails to initialise"
+    ],
+    "root_cause": "The wasm files (ort-wasm*.wasm/jsep) for ONNX Runtime Web couldn't be located by the loader. This usually means the bundler isn't copying them or the wasmPaths URL is wrong.",
+    "fix": [
+      "Set env.backends.onnx.wasm.wasmPaths to a URL that serves the .wasm files (e.g. '/onnx/' if you copied node_modules/onnxruntime-web/dist into public/onnx/)",
+      "For a CDN: env.backends.onnx.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@<version>/dist/'",
+      "Verify in DevTools that ort-wasm-simd-threaded.jsep.wasm is reachable (HTTP 200, content-type application/wasm)"
+    ],
+    "tags": ["onnxruntime-web", "wasm", "wasm-paths", "error"],
+    "severity": "high",
+    "frequency": "very-common",
+    "related_docs": ["https://onnxruntime.ai/docs/tutorials/web/env-flags-and-session-options.html"],
+    "version": "onnxruntime-web@1.18+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "WASM threads not enabled",
+      "warnings about SharedArrayBuffer"
+    ],
+    "root_cause": "ONNX Runtime Web threaded WASM needs SharedArrayBuffer, which requires cross-origin isolation (COOP + COEP headers).",
+    "fix": [
+      "Send Cross-Origin-Opener-Policy: same-origin and Cross-Origin-Embedder-Policy: require-corp on every document response",
+      "Verify with self.crossOriginIsolated === true in the browser console",
+      "If you cannot enable COOP/COEP, set env.backends.onnx.wasm.numThreads = 1 to silence the warnings and accept slower inference"
+    ],
+    "tags": ["coop", "coep", "sharedarraybuffer", "wasm-threads"],
+    "severity": "high",
+    "frequency": "very-common",
+    "related_docs": ["https://web.dev/articles/coop-coep"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "WASM SIMD not used",
+      "inference slower than expected"
+    ],
+    "root_cause": "Older browsers without WebAssembly SIMD fall back to scalar WASM, which is markedly slower. The runtime auto-selects but you can pin and inspect.",
+    "fix": [
+      "Check support: const simd = WebAssembly.validate(Uint8Array.of(0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11))",
+      "Pin SIMD on: env.backends.onnx.wasm.simd = true",
+      "Confirm in DevTools that ort-wasm-simd*.wasm (not ort-wasm.wasm) is loaded"
+    ],
+    "tags": ["wasm", "simd", "performance", "configuration"],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": ["https://onnxruntime.ai/docs/tutorials/web/env-flags-and-session-options.html"],
+    "version": "onnxruntime-web@1.18+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to control how many WASM threads run",
+      "tab pegs CPU at 100%"
+    ],
+    "root_cause": "env.backends.onnx.wasm.numThreads controls the worker pool size for ONNX Runtime Web. Too many threads on a low-core machine causes contention.",
+    "fix": [
+      "Default to navigator.hardwareConcurrency / 2 to leave room for the UI",
+      "env.backends.onnx.wasm.numThreads = Math.min(4, Math.max(1, Math.floor((navigator.hardwareConcurrency || 4) / 2)))",
+      "Set to 1 if cross-origin isolation isn't available"
+    ],
+    "tags": ["wasm-threads", "performance", "concurrency", "best-practice"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://onnxruntime.ai/docs/tutorials/web/env-flags-and-session-options.html"],
+    "version": "onnxruntime-web@1.18+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "error",
+    "symptoms": [
+      "TypeError: WebAssembly.instantiate(): Out of memory",
+      "RangeError: WebAssembly.Memory(): could not allocate memory"
+    ],
+    "root_cause": "Running a model larger than the WASM 32-bit address space allows (4 GB hard cap, ~2 GB practical). On mobile the limit is much lower and OOM kills the page.",
+    "fix": [
+      "Switch to a smaller dtype (q8 or q4) to halve/quarter memory",
+      "Pick a smaller model (whisper-tiny instead of whisper-large)",
+      "Move to WebGPU which uses GPU memory and is not bound by the WASM heap",
+      "Release previous instances with await pipe.dispose() before loading a new model"
+    ],
+    "tags": ["oom", "wasm-memory", "error", "mobile"],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": ["https://onnxruntime.ai/docs/tutorials/web/env-flags-and-session-options.html"],
+    "version": "onnxruntime-web@1.18+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "want to use a custom CDN for model files",
+      "Hub is blocked by corporate firewall"
+    ],
+    "root_cause": "env.remoteHost and env.remotePathTemplate let you redirect model fetches to your own mirror.",
+    "fix": [
+      "env.remoteHost = 'https://cdn.example.com'",
+      "env.remotePathTemplate = '{model}/resolve/{revision}/'",
+      "Mirror the same path layout as huggingface.co (e.g. /<org>/<model>/resolve/main/onnx/model.onnx)"
+    ],
+    "tags": ["env", "mirror", "cdn", "configuration"],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/env"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "error",
+    "symptoms": [
+      "Error: Could not locate file: \"https://huggingface.co/.../onnx/model.onnx\"",
+      "404 on model file"
+    ],
+    "root_cause": "The model id you passed has no ONNX export at the expected path (most Hub models are PyTorch only).",
+    "fix": [
+      "Pick a model from onnx-community/* or Xenova/* — those organisations publish ONNX exports",
+      "Search the Hub with library:transformers.js to filter to compatible models",
+      "If you must use a PyTorch-only model, convert it with the optimum CLI: optimum-cli export onnx --model <id> ./out"
+    ],
+    "tags": ["model-not-found", "404", "onnx-export", "error"],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/optimum/exporters/onnx/usage_guides/export_a_model"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to convert a PyTorch model to ONNX for Transformers.js",
+      "no ONNX export available on the Hub"
+    ],
+    "root_cause": "Hugging Face Optimum exports PyTorch / TensorFlow models to ONNX in the layout Transformers.js expects.",
+    "fix": [
+      "pip install 'optimum[exporters]'",
+      "optimum-cli export onnx --model <hub-or-local> --task <task> ./out",
+      "Optionally quantize: optimum-cli onnxruntime quantize --avx2 -o ./out-q8 ./out",
+      "Upload ./out to your own Hub repo or serve from your CDN"
+    ],
+    "tags": ["optimum", "onnx-export", "conversion", "best-practice"],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/optimum/exporters/onnx/usage_guides/export_a_model"],
+    "version": "optimum@1.20+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to keep inference off the main thread",
+      "UI freezes during model run"
+    ],
+    "root_cause": "The browser is single-threaded for JS on the main thread; running a model there blocks paint and input. The canonical fix is a Web Worker.",
+    "fix": [
+      "Create a worker file: const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })",
+      "Inside the worker import Transformers.js and hold the pipeline as a singleton",
+      "Use postMessage on both ends; never share DOM nodes between threads"
+    ],
+    "tags": ["web-worker", "main-thread", "code-pattern"],
+    "severity": "medium",
+    "frequency": "very-common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/Web_Workers_API"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want a typed message protocol between worker and UI",
+      "string switch in onmessage is fragile"
+    ],
+    "root_cause": "Using a tagged-union message type (TypeScript discriminated unions) keeps the protocol typed across the postMessage boundary.",
+    "fix": [
+      "type Req = { type: 'load' } | { type: 'transcribe', audio: Float32Array, lang: string }",
+      "type Res = { type: 'progress', file: string, progress: number } | { type: 'done', text: string } | { type: 'error', message: string }",
+      "Cast in onmessage: const msg = e.data as Req; switch (msg.type) { ... }"
+    ],
+    "tags": ["web-worker", "typescript", "protocol", "code-pattern"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/Worker/postMessage"],
+    "version": "typescript@5+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "Float32Array copies between main and worker are slow",
+      "UI lags posting long audio buffers"
+    ],
+    "root_cause": "postMessage structured-clones by default. For large typed arrays, transfer them so ownership moves with no copy.",
+    "fix": [
+      "worker.postMessage({ type: 'audio', buffer: f32 }, [f32.buffer])",
+      "After transfer, f32 on the sender is detached (length 0) — only access it from the receiver",
+      "Use SharedArrayBuffer when both sides need read access (requires COOP/COEP)"
+    ],
+    "tags": ["transferable", "performance", "worker", "best-practice"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/Web_Workers_API/Transferable_objects"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "ReferenceError: window is not defined inside a worker",
+      "code uses document.* in a module that runs in a worker"
+    ],
+    "root_cause": "Web Workers have no DOM. Any code path that touches window or document throws when imported in the worker.",
+    "fix": [
+      "Move DOM-touching code out of the worker module — keep the worker side strictly inference + audio buffers",
+      "Replace window references with self (the worker global) when an alias is needed",
+      "Lazy-import shared utilities that branch on typeof window"
+    ],
+    "tags": ["web-worker", "no-dom", "configuration"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/Worker"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "Vite build fails with 'fs', 'path', 'crypto' externals",
+      "browser bundle tries to import Node built-ins"
+    ],
+    "root_cause": "Some onnxruntime-web / sharp dependency paths reference Node-only modules. Vite normally polyfills nothing.",
+    "fix": [
+      "In vite.config.ts add resolve.alias to map Node modules to empty: resolve: { alias: { fs: false, path: false, crypto: false } } via vite-plugin-node-polyfills set to disable",
+      "Or configure optimizeDeps.exclude: ['onnxruntime-web']",
+      "Confirm with import.meta.env.SSR === false that the module is browser-only"
+    ],
+    "tags": ["vite", "bundler", "node-builtins", "configuration"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://vitejs.dev/config/"],
+    "version": "vite@5+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "Webpack: Module not found: Can't resolve 'fs' / 'path' / 'crypto'",
+      "Next.js client build fails on first import of @huggingface/transformers"
+    ],
+    "root_cause": "ONNX Runtime Web's optional Node code paths still appear in the dependency graph; Webpack 5 doesn't auto-polyfill Node built-ins.",
+    "fix": [
+      "Set webpack.resolve.fallback for the client build only: { fs: false, path: false, crypto: false }",
+      "In Next.js: webpack(config, { isServer }) { if (!isServer) { config.resolve.fallback = { ...config.resolve.fallback, fs: false, path: false, crypto: false } } return config }",
+      "Do NOT set the fallback for the server bundle; leave Node built-ins available there"
+    ],
+    "tags": ["webpack", "fallback", "node-builtins", "nextjs"],
+    "severity": "high",
+    "frequency": "very-common",
+    "related_docs": ["https://webpack.js.org/configuration/resolve/#resolvefallback"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "@huggingface/transformers throws on the server",
+      "Next.js page errors during SSR with the worker import"
+    ],
+    "root_cause": "Transformers.js code paths reach for browser-only globals (Worker, navigator) and crash during SSR.",
+    "fix": [
+      "Wrap the consuming component with next/dynamic and disable SSR: const Audio = dynamic(() => import('@/components/AudioInterface'), { ssr: false })",
+      "Never call pipeline() at module top level; only inside a useEffect or worker",
+      "Mark the client component with \"use client\" if you need React-side state around it"
+    ],
+    "tags": ["nextjs", "ssr", "dynamic-import", "configuration"],
+    "severity": "high",
+    "frequency": "very-common",
+    "related_docs": ["https://nextjs.org/docs/app/building-your-application/optimizing/lazy-loading"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "Vite 'new Worker(new URL(...), { type: \"module\" })' breaks in production build",
+      "worker file is missing after build"
+    ],
+    "root_cause": "Vite needs the new URL(..., import.meta.url) pattern to detect and emit the worker chunk; any deviation skips emission.",
+    "fix": [
+      "Always write: new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })",
+      "Don't compute the URL with string concat or template literals",
+      "For Webpack 5 the same pattern works; for Next.js it works under app/ when 'use client' is set"
+    ],
+    "tags": ["vite", "worker", "bundler", "configuration"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://vitejs.dev/guide/features.html#web-workers"],
+    "version": "vite@5+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "warning: Failed to fetch dynamically imported module",
+      "code splitting broken for the worker"
+    ],
+    "root_cause": "After a deploy, an older cached HTML can request a worker chunk hash that no longer exists. Service workers and aggressive caching make this worse.",
+    "fix": [
+      "Use immutable cache headers on hashed assets and short cache on HTML",
+      "Catch dynamic import failures and prompt the user to reload",
+      "Pin the worker URL to a stable public/ path if you need long-lived clients"
+    ],
+    "tags": ["dynamic-import", "deploy", "cache", "best-practice"],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": ["https://web.dev/articles/service-worker-caching-and-http-caching"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to disable progress logs in production",
+      "console is noisy with file load lines"
+    ],
+    "root_cause": "Transformers.js logs progress callbacks by default. Set env.debug or replace the logger.",
+    "fix": [
+      "env.backends.onnx.logSeverityLevel = 3 // 0=verbose, 4=fatal",
+      "Provide your own progress_callback so the default console logger is bypassed",
+      "Wrap pipeline() in a try/catch and log only failures in production"
+    ],
+    "tags": ["logging", "env", "production", "code-pattern"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://onnxruntime.ai/docs/tutorials/web/env-flags-and-session-options.html"],
+    "version": "onnxruntime-web@1.18+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to reduce bundle size",
+      "@huggingface/transformers adds megabytes to the JS bundle"
+    ],
+    "root_cause": "The library bundles tokenizers and runtime glue. Most of the size is unavoidable, but tree-shakable subimports help.",
+    "fix": [
+      "Import only what you use: import { pipeline } from '@huggingface/transformers'",
+      "Code-split: only load Transformers.js inside the worker, never on the initial route",
+      "If you use a single tokenizer, prefer pipeline() over pulling AutoTokenizer + AutoModel separately"
+    ],
+    "tags": ["bundle-size", "tree-shaking", "performance", "best-practice"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want offline-first behaviour",
+      "PWA must work without network"
+    ],
+    "root_cause": "Models are served via fetch and cached in IndexedDB; making the app a PWA gives full offline support after the first load.",
+    "fix": [
+      "Register a service worker that precaches the JS shell",
+      "Don't try to precache the model files in the SW — let Transformers.js handle them in IndexedDB",
+      "Detect first-load and prompt the user to download the model before going offline"
+    ],
+    "tags": ["pwa", "offline", "service-worker", "code-pattern"],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": ["https://web.dev/learn/pwa"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to show estimated cold-load time to users",
+      "model size shown but not user-friendly"
+    ],
+    "root_cause": "The progress_callback gives loaded/total bytes; converting to seconds requires measuring network speed.",
+    "fix": [
+      "Track elapsed and loaded across the first few progress events to compute bytes/sec",
+      "Estimate remaining = (total - loaded) / bytes_per_sec",
+      "Display both percentage and a human-readable ETA"
+    ],
+    "tags": ["progress", "ux", "model-loading", "best-practice"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/utils/hub"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "diagnostic_step",
+    "symptoms": [
+      "want to know if WebGPU is available before loading a model",
+      "Safari users can't run the WebGPU build"
+    ],
+    "root_cause": "WebGPU is gated by `navigator.gpu`. Some browsers expose the global but `requestAdapter()` returns null on unsupported hardware.",
+    "fix": [
+      "if (!('gpu' in navigator)) { device = 'wasm' }",
+      "const adapter = await navigator.gpu?.requestAdapter(); if (!adapter) device = 'wasm'",
+      "Display a 'GPU acceleration available' badge after a successful adapter request"
+    ],
+    "tags": ["webgpu", "feature-detection", "diagnostic"],
+    "severity": "low",
+    "frequency": "very-common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/GPU"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "error",
+    "symptoms": [
+      "Error: failed to create webgpu device",
+      "WebGPU adapter request returned null on Linux/Firefox"
+    ],
+    "root_cause": "WebGPU is not enabled by default on every platform. Linux frequently needs explicit flags; Firefox ships WebGPU only behind a flag.",
+    "fix": [
+      "Catch the error and fall back to { device: 'wasm' }",
+      "On Chrome Linux, ensure chrome://flags/#enable-unsafe-webgpu is on for end users in dev only — production must work without it",
+      "Set instructions in your UI: 'GPU not available, running on CPU' instead of failing silently"
+    ],
+    "tags": ["webgpu", "fallback", "error", "compatibility"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://caniuse.com/webgpu"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "very large model file from CDN times out",
+      "fetch aborted at 30s"
+    ],
+    "root_cause": "Some CDNs and proxies cap response duration. Transformers.js uses standard fetch; long downloads need correct cache headers and no proxy timeouts.",
+    "fix": [
+      "Host weights on a CDN that supports range requests and long downloads (Hugging Face CDN, Cloudflare R2, Vercel Blob)",
+      "Avoid Vercel Edge Middleware for proxying model files; serve them as static assets instead",
+      "Pre-warm cache on a 'Download model' click so users opt in"
+    ],
+    "tags": ["cdn", "timeout", "model-download", "configuration"],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/hub/storage"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "running multiple models concurrently",
+      "memory pressure with several pipelines"
+    ],
+    "root_cause": "Each pipeline holds its own session; loading more than one large model at once will OOM mobile devices.",
+    "fix": [
+      "Serialise model use: dispose() the previous pipeline before loading a new one",
+      "On WebGPU, sessions hold GPU buffers — explicit dispose() is required",
+      "Keep small auxiliary models (VAD, tokenizers) hot, load big models on demand"
+    ],
+    "tags": ["memory", "dispose", "concurrency", "best-practice"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to call a model with multiple inputs in one batch",
+      "single-sample API too slow"
+    ],
+    "root_cause": "Most pipelines accept arrays; the runtime batches into one ONNX graph run for far better throughput than N sequential calls.",
+    "fix": [
+      "const out = await classifier(['a', 'b', 'c']) // one batch instead of three calls",
+      "Pad to the max length within the batch (the tokenizer does this automatically)",
+      "On WebGPU keep batch sizes modest (4-16) to avoid GPU memory spikes"
+    ],
+    "tags": ["batching", "throughput", "performance", "code-pattern"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to abort a running inference",
+      "user clicked Cancel mid-generation"
+    ],
+    "root_cause": "ONNX Runtime Web doesn't expose interrupt for an in-flight session.run(), but generation loops accept a stopping criteria you can flip.",
+    "fix": [
+      "For text-generation, pass { generation_config: { ... }, stopping_criteria } and break the loop when a flag flips",
+      "For long audio split into chunks; cancel between chunks rather than mid-chunk",
+      "Reset the worker by terminating and recreating it as the absolute last resort"
+    ],
+    "tags": ["abort", "cancellation", "ux", "best-practice"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/generation/stopping_criteria"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "tokenizer behaviour seems off",
+      "want to inspect tokens before generation"
+    ],
+    "root_cause": "AutoTokenizer is exposed and you can decode/encode independently of a model.",
+    "fix": [
+      "import { AutoTokenizer } from '@huggingface/transformers'",
+      "const tok = await AutoTokenizer.from_pretrained(model)",
+      "const ids = tok.encode('hello world'); console.log(ids, tok.decode(ids))"
+    ],
+    "tags": ["tokenizer", "encode", "decode", "code-pattern"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/tokenizers"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "tokenizer 'Unknown padding strategy: longest' error",
+      "wrong padding token id"
+    ],
+    "root_cause": "Tokenizers fall back to model defaults; for custom batches you need to pass padding/truncation explicitly.",
+    "fix": [
+      "tokenizer(texts, { padding: true, truncation: true, max_length: 128 })",
+      "If pad_token is undefined, set tok.pad_token = tok.eos_token before encoding",
+      "Confirm the resulting input_ids tensor has the same shape across batch entries"
+    ],
+    "tags": ["tokenizer", "padding", "truncation", "configuration"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/tokenizers"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to use AutoModel directly",
+      "pipeline() abstraction is too high level"
+    ],
+    "root_cause": "AutoTokenizer + AutoModel give you direct ONNX session control for custom workflows.",
+    "fix": [
+      "import { AutoTokenizer, AutoModel } from '@huggingface/transformers'",
+      "const [tok, model] = await Promise.all([AutoTokenizer.from_pretrained(id), AutoModel.from_pretrained(id, { dtype: 'q8' })])",
+      "const inputs = await tok('hello'); const out = await model(inputs)"
+    ],
+    "tags": ["automodel", "low-level", "code-pattern"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/models"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to inspect raw tensor outputs",
+      "need .data, .dims for custom math"
+    ],
+    "root_cause": "Pipeline outputs are post-processed JS objects; for raw tensors use AutoModel and read tensor.data (a typed array) and tensor.dims.",
+    "fix": [
+      "const out = await model(inputs)",
+      "const logits = out.logits; console.log(logits.dims, logits.data.length)",
+      "Convert to a regular JS array with Array.from(logits.data) only for small tensors"
+    ],
+    "tags": ["tensor", "low-level", "automodel", "code-pattern"],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/utils/tensor"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want consistent results across runs",
+      "non-deterministic generation outputs"
+    ],
+    "root_cause": "Sampling is stochastic by default. For reproducible runs disable sampling.",
+    "fix": [
+      "Pass { do_sample: false } for greedy decoding",
+      "Pin temperature, top_k, top_p, and use repetition_penalty if needed",
+      "Don't expect bit-exact equality across browsers; floating-point implementations differ"
+    ],
+    "tags": ["determinism", "sampling", "generation", "best-practice"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/generation/configuration_utils"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to set max output length",
+      "model produces very long replies"
+    ],
+    "root_cause": "max_new_tokens caps the number of generated tokens regardless of input length; max_length caps total length including the prompt.",
+    "fix": [
+      "Prefer max_new_tokens for chat-style apps: { max_new_tokens: 256 }",
+      "Use max_length only when you need to enforce a hard total context limit",
+      "Pair with stopping_criteria to break early on a stop string"
+    ],
+    "tags": ["generation", "max-tokens", "code-pattern"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/generation/configuration_utils"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want temperature/top_p to feel like a chat model",
+      "outputs feel robotic"
+    ],
+    "root_cause": "Default greedy decoding is deterministic but bland. Sampling with temperature 0.7 + top_p 0.9 gives a chat-like feel for most LLMs.",
+    "fix": [
+      "{ do_sample: true, temperature: 0.7, top_p: 0.9, top_k: 0 }",
+      "Lower temperature for code or factual tasks (0.2-0.4)",
+      "Raise temperature for creative writing (0.9-1.1) but watch for incoherence"
+    ],
+    "tags": ["sampling", "temperature", "best-practice"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/generation/configuration_utils"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "RangeError: Invalid typed array length",
+      "generation aborts after a few tokens"
+    ],
+    "root_cause": "Allocating typed arrays beyond engine limits, often caused by oversized max_new_tokens or missing pad/eos token configuration.",
+    "fix": [
+      "Cap max_new_tokens to a sane number (256 for chat, 1024 for long-form)",
+      "Ensure tok.eos_token_id is set on the generation config so the model can stop",
+      "Switch to a smaller dtype to free memory headroom"
+    ],
+    "tags": ["range-error", "generation", "memory", "configuration"],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/generation/configuration_utils"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to display partial decoded text",
+      "TextStreamer prints to console only"
+    ],
+    "root_cause": "TextStreamer accepts a callback_function so you can route tokens anywhere — postMessage, React state, or DOM updates.",
+    "fix": [
+      "new TextStreamer(tok, { skip_prompt: true, skip_special_tokens: true, callback_function: (txt) => self.postMessage({ type: 'token', txt }) })",
+      "On the UI side accumulate tokens with setText((t) => t + msg.txt)",
+      "Throttle DOM updates with requestAnimationFrame for very fast generation"
+    ],
+    "tags": ["text-streamer", "callback", "ui-streaming", "code-pattern"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/generation/streamers"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to support multiple model variants from one UI",
+      "let users pick small/medium/large"
+    ],
+    "root_cause": "Centralise the catalog of model id + dtype combos and expose them in the UI; reload the worker when the user changes selection.",
+    "fix": [
+      "const CATALOG = [{ id: 'onnx-community/whisper-tiny', dtype: 'q8' }, { id: 'onnx-community/whisper-base', dtype: 'q8' }, ...]",
+      "Persist the choice in localStorage; default to the smallest variant",
+      "Wipe IndexedDB only on user request, not on swap, so caches survive switches"
+    ],
+    "tags": ["model-catalog", "ux", "best-practice"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/onnx-community"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "error",
+    "symptoms": [
+      "Failed to load resource: the server responded with a status of 403",
+      "gated model can't be downloaded in the browser"
+    ],
+    "root_cause": "Some Hub repos are gated and require a token to access. Browser apps can't ship a Hub token securely.",
+    "fix": [
+      "Mirror the model to a non-gated repo you control if the licence allows",
+      "Self-host the converted ONNX files on your own CDN",
+      "Don't pass HF tokens from the browser; that leaks the credential"
+    ],
+    "tags": ["gated", "auth", "hub", "error"],
+    "severity": "high",
+    "frequency": "rare",
+    "related_docs": ["https://huggingface.co/docs/hub/models-gated"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want consistent fp16 behaviour across browsers",
+      "model precision differs between WebGPU and WASM"
+    ],
+    "root_cause": "WebGPU supports fp16 natively; WASM falls back to fp32 emulation for fp16 weights, which is slower and may differ numerically.",
+    "fix": [
+      "Use { dtype: 'fp16', device: 'webgpu' } as a pair on capable hardware",
+      "Use { dtype: 'q8', device: 'wasm' } as the safe fallback on CPU",
+      "Don't ship fp16 to wasm in production; the runtime upcasts and you lose the size benefit"
+    ],
+    "tags": ["fp16", "webgpu", "wasm", "best-practice"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/guides/dtypes"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to release GPU memory",
+      "subsequent loads OOM the GPU"
+    ],
+    "root_cause": "WebGPU sessions hold device buffers until disposed. JS GC doesn't free them eagerly.",
+    "fix": [
+      "await pipe.dispose() before reassigning the singleton",
+      "Wrap reload in try/finally to guarantee disposal even on error",
+      "On reload, also drop references to streamer and tokenizer caches"
+    ],
+    "tags": ["webgpu", "memory", "dispose", "code-pattern"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to test on Node",
+      "Transformers.js usable in Node for CI"
+    ],
+    "root_cause": "Transformers.js runs on Node.js too — useful for golden tests of model output without a browser.",
+    "fix": [
+      "Install in Node and import the same package; the runtime auto-selects the Node binding for ONNX Runtime",
+      "Use sharp for image inputs, fs.readFileSync for audio",
+      "CI runs against q8 to keep tests fast and deterministic"
+    ],
+    "tags": ["node", "testing", "ci", "best-practice"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/env"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "want Transformers.js logs to flow to a custom logger",
+      "console.log littered with 'Loading...'"
+    ],
+    "root_cause": "By default loggers go to console.log/warn/error. Override via env or by intercepting with your own console wrapper.",
+    "fix": [
+      "Provide a progress_callback so the default logger isn't installed",
+      "Wrap console with a no-op for 'transformers' prefixed messages in production",
+      "Forward important events (model loaded, error) to your own observability layer"
+    ],
+    "tags": ["logging", "observability", "configuration"],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/utils/hub"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need question answering on a passage",
+      "want extractive QA"
+    ],
+    "root_cause": "question-answering pipeline returns answer span + score from a context.",
+    "fix": [
+      "const qa = await pipeline('question-answering', 'Xenova/distilbert-base-cased-distilled-squad')",
+      "const out = await qa('Where is Paris?', 'Paris is the capital of France.')",
+      "out -> { answer: 'France', score: 0.6, start: 25, end: 31 }"
+    ],
+    "tags": ["question-answering", "qa", "code-pattern"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/Xenova/distilbert-base-cased-distilled-squad"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need named-entity recognition",
+      "want to extract people/places/organisations"
+    ],
+    "root_cause": "token-classification pipeline returns spans for each entity with confidence scores.",
+    "fix": [
+      "const ner = await pipeline('token-classification', 'Xenova/bert-base-NER')",
+      "const out = await ner('My name is Sarah and I live in London.', { ignore_labels: [] })",
+      "Use { aggregation_strategy: 'simple' } to merge subword tokens into entities"
+    ],
+    "tags": ["ner", "token-classification", "code-pattern"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/Xenova/bert-base-NER"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need summarisation in the browser",
+      "want to compress an article"
+    ],
+    "root_cause": "summarization pipeline wraps seq2seq models like distilbart and bart-large-cnn.",
+    "fix": [
+      "const summariser = await pipeline('summarization', 'Xenova/distilbart-cnn-6-6')",
+      "const out = await summariser(longText, { max_new_tokens: 120, min_new_tokens: 40 })",
+      "Chunk inputs longer than the model's max_position_embeddings"
+    ],
+    "tags": ["summarization", "bart", "code-pattern"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/Xenova/distilbart-cnn-6-6"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need image segmentation",
+      "want to extract foreground from background"
+    ],
+    "root_cause": "image-segmentation supports semantic / panoptic models; for matting use background-removal models like RMBG.",
+    "fix": [
+      "const segmenter = await pipeline('image-segmentation', 'Xenova/segformer-b0-finetuned-ade-512-512')",
+      "const out = await segmenter(imageUrl) // returns array of { mask, label, score }",
+      "For background removal use 'briaai/RMBG-1.4' (ONNX export)"
+    ],
+    "tags": ["segmentation", "rmbg", "image", "code-pattern"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/Xenova/segformer-b0-finetuned-ade-512-512"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need depth estimation",
+      "want to build a 3D effect from a photo"
+    ],
+    "root_cause": "depth-estimation pipeline runs models like MiDaS and Depth Anything in the browser.",
+    "fix": [
+      "const depth = await pipeline('depth-estimation', 'onnx-community/depth-anything-v2-small')",
+      "const { predicted_depth } = await depth(imageUrl)",
+      "Render predicted_depth to a canvas via grayscale mapping for visualisation"
+    ],
+    "tags": ["depth-estimation", "midas", "depth-anything", "code-pattern"],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": ["https://huggingface.co/onnx-community/depth-anything-v2-small"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to share the same worker across pages",
+      "model reloads when navigating in a SPA"
+    ],
+    "root_cause": "Web Workers live as long as the page that created them; navigating between SPA routes that mount/unmount the worker re-downloads the model. SharedWorker survives across same-origin tabs.",
+    "fix": [
+      "Hoist the worker creation to the app shell so SPA navigation doesn't tear it down",
+      "Use a SharedWorker if you need to share state across tabs of the same origin",
+      "In React keep the worker in a top-level provider with useRef + useEffect cleanup"
+    ],
+    "tags": ["spa", "worker-lifetime", "shared-worker", "best-practice"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/SharedWorker"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to ship an offline demo",
+      "models embedded with the app"
+    ],
+    "root_cause": "For completely-offline distribution put the ONNX files into your static assets and point env.localModelPath at them.",
+    "fix": [
+      "Place files under public/models/<org>/<model>/onnx/* (mirror the Hub layout)",
+      "env.allowLocalModels = true; env.allowRemoteModels = false; env.localModelPath = '/models/'",
+      "Test with the network panel offline-mode enabled to confirm no remote requests"
+    ],
+    "tags": ["offline", "static-assets", "local-models", "best-practice"],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/env"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "Astro/Remix build fails on import of @huggingface/transformers",
+      "import.meta.env not defined"
+    ],
+    "root_cause": "Some meta-frameworks treat the package as universal and try to import it on the server. Force it to client-only.",
+    "fix": [
+      "Use the framework's client-only directive (Astro: client:only=\"react\"; Remix: dynamic import inside useEffect)",
+      "Wrap imports with typeof window !== 'undefined' guards if you must keep them isomorphic",
+      "Move the import into a worker file that the framework already treats as a separate chunk"
+    ],
+    "tags": ["meta-framework", "client-only", "configuration"],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/transformers.js"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "diagnostic_step",
+    "symptoms": [
+      "want to print model metadata after load",
+      "verify which weights were used"
+    ],
+    "root_cause": "Loaded models expose .config and the tokenizer exposes .name — useful for diagnostics.",
+    "fix": [
+      "console.log(pipe.model.config) // architecture-specific fields like d_model, vocab_size",
+      "console.log(pipe.tokenizer.name_or_path) // the resolved model id",
+      "Inspect ort session input/output shapes via pipe.model.session.inputNames/outputNames"
+    ],
+    "tags": ["diagnostic", "metadata", "config"],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/models"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to secure model files behind auth",
+      "block unauthenticated downloads"
+    ],
+    "root_cause": "If you self-host weights, cookie or signed-URL gating works because env.remoteHost obeys credentials when configured.",
+    "fix": [
+      "Set env.remoteHost to your authenticated CDN URL",
+      "Use signed URLs (S3 presign / Vercel Blob signed) with short TTLs",
+      "Generate the URL server-side and pass it into the worker via postMessage on session start"
+    ],
+    "tags": ["auth", "private-models", "signed-urls", "best-practice"],
+    "severity": "medium",
+    "frequency": "rare",
+    "related_docs": ["https://vercel.com/docs/storage/vercel-blob"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to attribute model usage to a user",
+      "track inference per session"
+    ],
+    "root_cause": "All inference happens client-side; you have no server-side hook. Use client-side telemetry only.",
+    "fix": [
+      "Send analytics events from the worker via postMessage and forward to your provider on the main thread",
+      "Don't post raw user inputs unless you obtain consent",
+      "Aggregate by anonymous session id, not user id"
+    ],
+    "tags": ["telemetry", "privacy", "analytics", "best-practice"],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": ["https://huggingface.co/docs/transformers.js"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need image-to-text captioning",
+      "want to describe an image"
+    ],
+    "root_cause": "image-to-text wraps vision-language models like BLIP and ViT-GPT2.",
+    "fix": [
+      "const captioner = await pipeline('image-to-text', 'Xenova/vit-gpt2-image-captioning')",
+      "const out = await captioner(imageUrl)",
+      "out -> [{ generated_text: 'a cat sitting on a couch' }]"
+    ],
+    "tags": ["image-to-text", "captioning", "blip", "code-pattern"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/Xenova/vit-gpt2-image-captioning"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need object detection",
+      "want bounding boxes for objects"
+    ],
+    "root_cause": "object-detection pipeline supports DETR and YOLOS models converted to ONNX.",
+    "fix": [
+      "const detector = await pipeline('object-detection', 'Xenova/detr-resnet-50')",
+      "const out = await detector(imageUrl, { threshold: 0.9 })",
+      "Each result has { box: { xmin, ymin, xmax, ymax }, label, score }"
+    ],
+    "tags": ["object-detection", "detr", "yolos", "code-pattern"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/Xenova/detr-resnet-50"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need zero-shot image classification",
+      "use CLIP-like models"
+    ],
+    "root_cause": "zero-shot-image-classification scores arbitrary text labels against an image using CLIP / SigLIP.",
+    "fix": [
+      "const z = await pipeline('zero-shot-image-classification', 'Xenova/clip-vit-base-patch32')",
+      "const out = await z(imageUrl, ['a photo of a dog', 'a photo of a cat'])",
+      "Pass natural-language captions, not single words, for best accuracy"
+    ],
+    "tags": ["clip", "zero-shot", "vision-language", "code-pattern"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/Xenova/clip-vit-base-patch32"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "warning: ONNX Runtime warning about unused initializers",
+      "noisy ort console messages"
+    ],
+    "root_cause": "ONNX Runtime emits informational logs by default. Silence them via env.backends.onnx.logSeverityLevel.",
+    "fix": [
+      "env.backends.onnx.logSeverityLevel = 3 // 0 verbose, 1 info, 2 warning, 3 error, 4 fatal",
+      "Set during app startup, before pipeline() is called",
+      "Keep severity 2+ in development to surface real issues"
+    ],
+    "tags": ["onnxruntime", "logging", "best-practice"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://onnxruntime.ai/docs/tutorials/web/env-flags-and-session-options.html"],
+    "version": "onnxruntime-web@1.18+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "want to override how files are fetched",
+      "need a custom auth header on Hub requests"
+    ],
+    "root_cause": "Transformers.js exposes a customFetch hook on env that wraps every download. Use it to add headers, log, or rewrite URLs.",
+    "fix": [
+      "env.customFetch = (url, init) => fetch(url, { ...init, headers: { ...init?.headers, 'X-My-Header': 'val' } })",
+      "Useful for proxying through your own server when CORS blocks direct Hub access",
+      "Avoid putting bearer tokens in this hook on the client; use signed URLs instead"
+    ],
+    "tags": ["custom-fetch", "auth", "configuration"],
+    "severity": "medium",
+    "frequency": "rare",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/env"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to verify a model file's integrity",
+      "concerned about supply-chain tampering"
+    ],
+    "root_cause": "Hub files are immutable per revision; pin a revision and verify the SHA256 of the served file matches.",
+    "fix": [
+      "Pass { revision: '<commit-sha>' } to pin",
+      "If hosting your own copies, compute a SHA-256 over the .onnx file and compare in env.customFetch",
+      "Store expected hashes in your build pipeline, not in the client"
+    ],
+    "tags": ["integrity", "supply-chain", "revision-pin", "best-practice"],
+    "severity": "medium",
+    "frequency": "rare",
+    "related_docs": ["https://huggingface.co/docs/hub/model-cards#metadata"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to chain multiple models",
+      "embed-then-classify or transcribe-then-translate"
+    ],
+    "root_cause": "Each pipeline can be awaited in series; share the worker so weights stay hot between stages.",
+    "fix": [
+      "const [whisper, translator] = await Promise.all([pipeline('automatic-speech-recognition', ...), pipeline('translation', ...)])",
+      "const transcript = await whisper(audio)",
+      "const out = await translator(transcript.text, { src_lang: ..., tgt_lang: ... })"
+    ],
+    "tags": ["pipeline-chain", "composition", "code-pattern"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to keep models warm in IndexedDB across deploys",
+      "users re-download after every release"
+    ],
+    "root_cause": "Cache keys are URL-based; if you change env.remoteHost or env.localModelPath the cache is effectively reset.",
+    "fix": [
+      "Keep model URLs stable across deploys",
+      "Don't append query strings or build hashes to ONNX files",
+      "If you must invalidate, do it explicitly via env.useBrowserCache = false on a one-off release"
+    ],
+    "tags": ["indexeddb", "cache-stability", "deploy", "best-practice"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/env"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "checklist",
+    "symptoms": [
+      "preflight before shipping a Transformers.js feature",
+      "want to avoid common production gotchas"
+    ],
+    "root_cause": "A handful of recurring issues bite every team going to production: SSR, COOP/COEP, dtype, dispose(), bundler fallbacks, progress UX.",
+    "fix": [
+      "Imports gated behind dynamic({ ssr: false }) or worker-only",
+      "Webpack/Vite configured with fs/path/crypto fallbacks",
+      "COOP+COEP headers set on the document for SharedArrayBuffer",
+      "Picked dtype + device combo and tested on a low-end device",
+      "pipeline disposed between model swaps",
+      "Progress UX shown for first cold load",
+      "Remote model URLs stable across deploys"
+    ],
+    "tags": ["checklist", "production", "deploy", "preflight"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "doc",
+    "symptoms": [
+      "want to know which browsers support WebGPU",
+      "support matrix unclear"
+    ],
+    "root_cause": "WebGPU support varies: Chrome/Edge stable on Windows/macOS/ChromeOS, Safari 18+ on macOS/iOS 17+, Firefox behind a flag (Nightly stable). Linux often needs a flag.",
+    "fix": [
+      "Treat WebGPU as progressive enhancement; always have a WASM fallback",
+      "Track caniuse.com/webgpu for current support",
+      "Test Safari 17 (no WebGPU) and Safari 18 (WebGPU on) as separate buckets"
+    ],
+    "tags": ["webgpu", "compatibility", "doc"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://caniuse.com/webgpu"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to migrate from @xenova/transformers to @huggingface/transformers",
+      "v2 to v3 upgrade"
+    ],
+    "root_cause": "v3 changed the import path, added the dtype + device options, and renamed quantized to dtype-based selection.",
+    "fix": [
+      "Replace 'import { pipeline } from \"@xenova/transformers\"' with 'import { pipeline } from \"@huggingface/transformers\"'",
+      "Replace { quantized: true } with { dtype: 'q8' }",
+      "Audit env.* keys; some moved (e.g., backends.onnx.wasm.proxy is gone)"
+    ],
+    "tags": ["v2-to-v3", "migration", "upgrade", "best-practice"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://github.com/huggingface/transformers.js/releases"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "Module not found when importing from worker",
+      "TypeError: Failed to construct 'Worker': type module is required"
+    ],
+    "root_cause": "Web Workers loading ESM code must be created with { type: 'module' }. Without it, ESM imports inside the worker file throw.",
+    "fix": [
+      "new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })",
+      "Don't mix classic and module workers in the same project — pick one",
+      "If you need IE-era browsers, transpile the worker to a single file and drop type: 'module'"
+    ],
+    "tags": ["worker", "esm", "type-module", "configuration"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/Worker/Worker"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to set per-model latency budget",
+      "users complain about slow responses"
+    ],
+    "root_cause": "Browser inference latency depends on dtype, backend, and hardware. Set realistic targets and instrument the path.",
+    "fix": [
+      "Wrap the pipeline call with performance.now() bookends and post the elapsed ms back to the UI",
+      "Track p50 and p95 separately; mobile has a long tail",
+      "Choose a smaller model variant if the budget can't be met on a target device class"
+    ],
+    "tags": ["latency", "performance", "instrumentation", "best-practice"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to load a model from a URL string",
+      "have a custom hosted ONNX bundle"
+    ],
+    "root_cause": "Setting env.remoteHost + env.remotePathTemplate redirects the loader; you can also point env.localModelPath at any same-origin path.",
+    "fix": [
+      "env.allowLocalModels = true; env.localModelPath = 'https://my.cdn/models/'",
+      "Mirror the Hub layout exactly: <localModelPath>/<org>/<model>/onnx/model.onnx",
+      "Pass the model id without https://: pipeline('text-classification', 'org/model')"
+    ],
+    "tags": ["custom-host", "remote-models", "code-pattern"],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/env"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "iOS Safari runs out of memory more aggressively than other browsers",
+      "page reloads silently on iOS"
+    ],
+    "root_cause": "iOS limits per-tab memory tightly; loading large models often triggers a silent reload. The fix is to use the smallest viable model + dtype and to avoid double-allocating on swap.",
+    "fix": [
+      "Default iOS users to whisper-tiny + dtype q8 unless WebGPU is detected",
+      "Always dispose() before loading a new model",
+      "Avoid transferring large Float32Arrays to the worker — share via SharedArrayBuffer where possible"
+    ],
+    "tags": ["ios-safari", "memory", "mobile", "best-practice"],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": ["https://webkit.org/blog/"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "diagnostic_step",
+    "symptoms": [
+      "want to measure model inference time",
+      "need throughput numbers"
+    ],
+    "root_cause": "performance.now() inside the worker captures the runtime cleanly without main-thread jitter.",
+    "fix": [
+      "const t0 = performance.now(); const out = await pipe(input); const dt = performance.now() - t0",
+      "Run a warm-up pass first so JIT and shader compile costs don't pollute timings",
+      "Sample 30+ runs to compute p50/p95"
+    ],
+    "tags": ["benchmark", "performance", "diagnostic"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need to feed a Float32Array to a pipeline",
+      "have raw audio samples"
+    ],
+    "root_cause": "ASR pipelines accept Float32Array directly; samples must be mono and at the model's expected sample rate.",
+    "fix": [
+      "Ensure samples is a Float32Array of mono audio at 16 kHz for Whisper",
+      "Pass directly: await transcriber(samples)",
+      "If the array is not Float32 (e.g., Float64), convert: new Float32Array(srcArray)"
+    ],
+    "tags": ["float32array", "audio-input", "code-pattern"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "anti_pattern",
+    "symptoms": [
+      "creating a new pipeline per request",
+      "every onSubmit calls pipeline() afresh"
+    ],
+    "root_cause": "Each pipeline() call does network IO and ONNX session init; doing it per request wastes the IndexedDB cache and forces session re-creation.",
+    "fix": [
+      "Memoise the pipeline as a module-scope singleton in the worker",
+      "Wrap with const getPipe = (() => { let p; return async () => p ??= pipeline(...); })()",
+      "Reload only when the user explicitly switches model variants"
+    ],
+    "tags": ["anti-pattern", "singleton", "performance"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "anti_pattern",
+    "symptoms": [
+      "running inference on the main thread",
+      "UI stalls during long generations"
+    ],
+    "root_cause": "The main thread shares time with rendering and input. Long sync inference blocks paint and produces an unresponsive page.",
+    "fix": [
+      "Always run pipeline() inside a Web Worker for production",
+      "Communicate via postMessage with a discriminated union message protocol",
+      "Reserve the main thread for UI state, audio capture / playback, and worker lifecycle"
+    ],
+    "tags": ["anti-pattern", "main-thread", "worker"],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/Web_Workers_API"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want a graceful first-run experience",
+      "users surprised by big download"
+    ],
+    "root_cause": "First run downloads hundreds of MB. Surprising users with a long load is a top reason for bounces.",
+    "fix": [
+      "Show a 'Download model (NNN MB)' button so users opt-in",
+      "Display progress with file name and percentage from progress_callback",
+      "Mention that subsequent loads are instant and offline-capable"
+    ],
+    "tags": ["ux", "first-run", "model-loading", "best-practice"],
+    "severity": "medium",
+    "frequency": "very-common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/utils/hub"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "Cypress / Playwright tests time out loading the model",
+      "headless browser slower than dev"
+    ],
+    "root_cause": "Headless Chromium can be slower at WebGPU and downloads weights with no cache between test runs.",
+    "fix": [
+      "Persist a user data dir between tests so IndexedDB survives",
+      "Mock the pipeline in tests by intercepting env.customFetch and returning fixtures",
+      "Mark long tests as slow and bump per-test timeouts (60s+)"
+    ],
+    "tags": ["e2e", "cypress", "playwright", "configuration"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://playwright.dev/docs/test-configuration"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need a fixed embedding dimension",
+      "build a vector search in the browser"
+    ],
+    "root_cause": "Sentence-transformers models on Transformers.js return mean-pooled normalised vectors; pick a model whose hidden_size matches your storage layout.",
+    "fix": [
+      "all-MiniLM-L6-v2 -> 384 dim; bge-small-en -> 384; bge-base-en -> 768",
+      "Store as Float32Array in IndexedDB or a tiny in-memory matrix",
+      "Use cosine similarity = dot product when vectors are normalised"
+    ],
+    "tags": ["embeddings", "vector-search", "minilm", "bge"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/Xenova/all-MiniLM-L6-v2"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to keep model weights versioned with the app",
+      "self-hosting with stable URLs"
+    ],
+    "root_cause": "Stable URLs are critical for IndexedDB cache hits and reproducible deploys.",
+    "fix": [
+      "Mirror the Hub layout under /models/<org>/<model>/onnx/*",
+      "Keep file names unchanged (model.onnx, model_q8.onnx, tokenizer.json, config.json)",
+      "Avoid query strings or hashed filenames; let the JS bundle hash but leave model files alone"
+    ],
+    "tags": ["self-host", "stable-urls", "cache", "best-practice"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/env"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "console error: 'Refused to apply style because its MIME type is wrong'",
+      "MIME type for .onnx or .json wrong"
+    ],
+    "root_cause": "Some static hosts default to text/plain for unknown extensions; ONNX Runtime expects application/octet-stream and tokenizer JSON files need application/json.",
+    "fix": [
+      "Configure the host to send application/json for *.json and application/octet-stream for *.onnx",
+      "On Vercel use a vercel.json headers block targeting /models/* paths",
+      "On Cloudflare Pages add _headers with /models/* application/octet-stream"
+    ],
+    "tags": ["mime-type", "static-host", "configuration"],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": ["https://vercel.com/docs/projects/project-configuration#headers"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to limit what users can run",
+      "need server-side allowlist for models"
+    ],
+    "root_cause": "Because all execution is client-side you cannot enforce runtime allowlists; instead constrain at build time and through the server-issued URLs.",
+    "fix": [
+      "Hardcode the small list of allowed model ids in the app",
+      "If you need rotation, fetch the catalog from your own API at startup and pass values into the worker",
+      "Avoid letting users supply arbitrary Hub ids in production"
+    ],
+    "tags": ["allowlist", "trust-model", "best-practice"],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": ["https://huggingface.co/docs/transformers.js"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "Vite dev server loads model slowly with HMR refresh",
+      "every file save retriggers model load"
+    ],
+    "root_cause": "HMR remounts components and may re-create the worker, which re-runs pipeline(). The IndexedDB cache helps but session init still costs ~100-500ms.",
+    "fix": [
+      "Move the worker creation outside the React tree so HMR doesn't remount it",
+      "Memoise heavy state with useState initialiser + useRef so re-renders don't re-do work",
+      "In dev, accept that the first save after a worker change will pay the session init cost"
+    ],
+    "tags": ["vite", "hmr", "dev-experience", "configuration"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://vitejs.dev/guide/features.html#hot-module-replacement"],
+    "version": "vite@5+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to compare two models on the same input",
+      "A/B test in the browser"
+    ],
+    "root_cause": "Run both pipelines (potentially in two workers) and average results. Don't share weights between them.",
+    "fix": [
+      "Spawn worker A and worker B; load distinct models in each",
+      "Send the same input to both, await both responses",
+      "Display side-by-side with timing and confidence; let the user pick the winner"
+    ],
+    "tags": ["a-b-test", "compare-models", "code-pattern"],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": ["https://huggingface.co/docs/transformers.js"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want minimum confidence filtering",
+      "low-score predictions noisy"
+    ],
+    "root_cause": "Most pipelines return a score; threshold-filter on the client to hide spurious results.",
+    "fix": [
+      "results.filter(r => r.score >= 0.6) for classification tasks",
+      "For object-detection use the threshold option (e.g., { threshold: 0.85 }) rather than post-filtering",
+      "Surface the threshold knob in the UI for power users"
+    ],
+    "tags": ["threshold", "confidence", "post-process", "best-practice"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "doc",
+    "symptoms": [
+      "want a quick reference of supported tasks",
+      "what can the pipeline do"
+    ],
+    "root_cause": "v3 supports a large set of tasks: text-classification, token-classification, question-answering, fill-mask, summarization, translation, text2text-generation, text-generation, zero-shot-classification, audio-classification, automatic-speech-recognition, text-to-audio, image-classification, image-segmentation, object-detection, zero-shot-object-detection, image-to-text, image-to-image, depth-estimation, feature-extraction, image-feature-extraction, zero-shot-image-classification, document-question-answering, image-to-text.",
+    "fix": [
+      "Pick the task name that matches your problem",
+      "Each task has a default model; override with the second argument to pipeline()",
+      "Read the task page on the Hugging Face Transformers.js docs for input/output shapes"
+    ],
+    "tags": ["task-list", "doc", "pipeline"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "architecture",
+    "symptoms": [
+      "want to host a Transformers.js audio app on Vercel",
+      "unsure how to fit audio ML in serverless"
+    ],
+    "root_cause": "Vercel Serverless Functions have a 50 MB deployment cap and 30 s Free Tier execution timeout. AI models are typically hundreds of MB and inference can take seconds, so models cannot run inside Functions. Vercel must serve only static assets while inference runs in the browser.",
+    "fix": [
+      "Treat Vercel as a CDN/edge layer for static HTML/JS/CSS only",
+      "Run all inference in a Web Worker on the client",
+      "Download models from the Hugging Face CDN (or Vercel Blob) directly to the browser and cache in IndexedDB"
+    ],
+    "tags": ["vercel", "serverless-limits", "architecture", "browser-only"],
+    "severity": "high",
+    "frequency": "very-common",
+    "related_docs": ["https://vercel.com/docs/functions/serverless-functions/runtimes/node-js#size-limits"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "architecture",
+    "symptoms": [
+      "want a clean separation between UI thread and ML thread",
+      "audio app's UI freezes during transcription"
+    ],
+    "root_cause": "The recommended architecture is: Next.js UI Thread <-> Web Worker (Transformers.js + ONNX Runtime Web) -> WebGPU/WASM, with model storage in IndexedDB and audio capture via MediaDevices on the main thread.",
+    "fix": [
+      "Main thread: handle UI, MediaRecorder/getUserMedia, playback, postMessage to/from the worker",
+      "Worker thread: own the pipeline singleton, all inference, and audio resampling",
+      "Send audio buffers as transferables; receive transcripts back as strings"
+    ],
+    "tags": ["architecture", "worker", "ui-thread", "audio"],
+    "severity": "high",
+    "frequency": "very-common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/guides/server-side-inference"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want recommended folder layout for a Next.js audio app",
+      "where do worker files live"
+    ],
+    "root_cause": "A clean layout for App Router puts UI in app/, the worker in workers/, and reusable client components in components/. Keep the worker out of the SSR graph.",
+    "fix": [
+      "app/page.tsx imports a client component dynamically with { ssr: false }",
+      "components/AudioInterface.tsx is the 'use client' shell that owns the worker",
+      "workers/audio.worker.ts contains all Transformers.js code"
+    ],
+    "tags": ["nextjs", "structure", "app-router", "best-practice"],
+    "severity": "low",
+    "frequency": "very-common",
+    "related_docs": ["https://nextjs.org/docs/app/building-your-application/routing"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "Next.js audio app: Module not found 'fs' / 'path' / 'crypto' on client build",
+      "ONNX Runtime Web pulls in Node-only modules"
+    ],
+    "root_cause": "ONNX Runtime Web's optional Node code paths show up in the client bundle. Without the webpack fallback the build fails.",
+    "fix": [
+      "In next.config.mjs add a webpack hook that disables fs/path/crypto on the client",
+      "if (!isServer) config.resolve.fallback = { ...config.resolve.fallback, fs: false, path: false, crypto: false }",
+      "Don't disable them on the server bundle"
+    ],
+    "tags": ["nextjs", "webpack-fallback", "configuration", "audio"],
+    "severity": "high",
+    "frequency": "very-common",
+    "related_docs": ["https://nextjs.org/docs/app/api-reference/next-config-js/webpack"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want SSR turned off for the audio interface",
+      "navigator.mediaDevices not available on server"
+    ],
+    "root_cause": "AudioInterface relies on browser-only APIs: navigator.mediaDevices, window, Web Workers, WebGPU. Loading it via next/dynamic with ssr: false ensures it never runs on Vercel's servers.",
+    "fix": [
+      "import dynamic from 'next/dynamic'",
+      "const AudioInterface = dynamic(() => import('@/components/AudioInterface'), { ssr: false })",
+      "Use it inside any server or client page; React will only render it on the client"
+    ],
+    "tags": ["nextjs", "ssr-disabled", "dynamic-import", "audio"],
+    "severity": "high",
+    "frequency": "very-common",
+    "related_docs": ["https://nextjs.org/docs/app/building-your-application/optimizing/lazy-loading"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need a minimal AudioInterface component",
+      "want a record-and-transcribe button"
+    ],
+    "root_cause": "AudioInterface owns the worker, captures audio with getUserMedia + MediaRecorder, sends Float32Array buffers to the worker, and renders the streamed transcript.",
+    "fix": [
+      "'use client' at the top",
+      "useEffect to create the worker once: const worker = useRef<Worker>()",
+      "On record click: get a stream, record, decode to Float32Array @16 kHz mono, postMessage to worker",
+      "onmessage handler appends streamed tokens to a transcript state"
+    ],
+    "tags": ["audio-interface", "use-client", "code-pattern", "audio"],
+    "severity": "low",
+    "frequency": "very-common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/MediaRecorder"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need a minimal audio.worker.ts for Whisper",
+      "where to put the pipeline singleton"
+    ],
+    "root_cause": "The worker file imports Transformers.js, holds the pipeline as a module-scope singleton, and listens for { type: 'transcribe', audio } messages.",
+    "fix": [
+      "import { pipeline } from '@huggingface/transformers'",
+      "let pipe; async function getPipe() { return pipe ??= pipeline('automatic-speech-recognition', 'onnx-community/whisper-base', { dtype: 'q8' }) }",
+      "self.onmessage = async (e) => { if (e.data.type === 'transcribe') { const p = await getPipe(); const out = await p(e.data.audio); self.postMessage({ type: 'done', text: out.text }) } }"
+    ],
+    "tags": ["worker", "whisper", "singleton", "code-pattern", "audio"],
+    "severity": "medium",
+    "frequency": "very-common",
+    "related_docs": ["https://huggingface.co/onnx-community/whisper-base"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need to capture microphone input",
+      "getUserMedia recipe"
+    ],
+    "root_cause": "navigator.mediaDevices.getUserMedia({ audio: true }) returns a MediaStream you can pipe into MediaRecorder or an AudioContext.",
+    "fix": [
+      "const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, sampleRate: 16000 } })",
+      "Browsers may ignore sampleRate; resample yourself with OfflineAudioContext to be safe",
+      "Stop tracks when done: stream.getTracks().forEach(t => t.stop())"
+    ],
+    "tags": ["getusermedia", "microphone", "code-pattern", "audio"],
+    "severity": "medium",
+    "frequency": "very-common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/MediaDevices/getUserMedia"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "Permission denied for microphone on production",
+      "getUserMedia rejects with NotAllowedError"
+    ],
+    "root_cause": "Microphone access requires a secure context (HTTPS). Vercel deploys are HTTPS by default; localhost is also a secure context. Custom domains over HTTP will fail.",
+    "fix": [
+      "Always serve over HTTPS (Vercel does this automatically for *.vercel.app and verified custom domains)",
+      "Handle the rejection: catch (e) { showError('Allow microphone access in browser settings') }",
+      "Test on localhost or 127.0.0.1 in dev — not on a LAN IP, which isn't a secure context"
+    ],
+    "tags": ["secure-context", "permissions", "https", "configuration"],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/Security/Secure_Contexts"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need to record audio to a Blob",
+      "MediaRecorder usage"
+    ],
+    "root_cause": "MediaRecorder captures a stream into chunks; assemble them into a Blob and decode for inference.",
+    "fix": [
+      "const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' })",
+      "const chunks = []; recorder.ondataavailable = (e) => chunks.push(e.data); recorder.onstop = () => process(new Blob(chunks))",
+      "Choose webm/opus on Chromium; Safari may need audio/mp4 — feature-detect with MediaRecorder.isTypeSupported"
+    ],
+    "tags": ["mediarecorder", "blob", "opus", "code-pattern", "audio"],
+    "severity": "low",
+    "frequency": "very-common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/MediaRecorder"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need to convert a recorded Blob to Float32 PCM at 16 kHz mono",
+      "Whisper expects 16 kHz"
+    ],
+    "root_cause": "Whisper and most ASR models in Transformers.js take Float32Array @ 16 kHz mono. Browsers usually record at 44.1/48 kHz; an OfflineAudioContext does the resample.",
+    "fix": [
+      "const arrayBuffer = await blob.arrayBuffer()",
+      "const ac = new AudioContext(); const audio = await ac.decodeAudioData(arrayBuffer)",
+      "const off = new OfflineAudioContext(1, Math.ceil(audio.duration * 16000), 16000)",
+      "const src = off.createBufferSource(); src.buffer = audio; src.connect(off.destination); src.start(0)",
+      "const rendered = await off.startRendering(); const f32 = rendered.getChannelData(0)"
+    ],
+    "tags": ["resample", "16khz", "mono", "float32", "code-pattern", "audio"],
+    "severity": "medium",
+    "frequency": "very-common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/OfflineAudioContext"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "audio is stereo and giving worse transcription",
+      "two-channel input"
+    ],
+    "root_cause": "Whisper is a mono model. Sending only one channel discards spatial info but is faster and matches training distribution.",
+    "fix": [
+      "Take channel 0: rendered.getChannelData(0)",
+      "Or mix-down: const mix = new Float32Array(L); for (let i=0; i<L; i++) mix[i] = (left[i] + right[i]) * 0.5",
+      "Set OfflineAudioContext numberOfChannels = 1 to render mono directly"
+    ],
+    "tags": ["mono", "downmix", "whisper", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "audio decodeAudioData is unreliable on Safari for webm",
+      "decodeAudioData throws on iOS"
+    ],
+    "root_cause": "Safari doesn't decode Opus inside webm reliably. MediaRecorder defaults differ between Chromium and Safari.",
+    "fix": [
+      "Detect MediaRecorder.isTypeSupported('audio/webm;codecs=opus') vs 'audio/mp4'",
+      "Fall back to AudioWorklet capture if MediaRecorder Opus is unavailable",
+      "On iOS use audio/mp4 (AAC) and accept the slightly larger file size"
+    ],
+    "tags": ["safari", "ios", "mediarecorder", "best-practice", "audio"],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/MediaRecorder/isTypeSupported"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to capture audio without MediaRecorder",
+      "need streaming PCM frames for live transcription"
+    ],
+    "root_cause": "AudioWorklet runs in the audio thread and emits frames you can ship to the worker for live, low-latency transcription.",
+    "fix": [
+      "Create an AudioWorkletProcessor that posts incoming frames as Float32Arrays",
+      "On the main thread, accumulate a sliding window (e.g., 5 s) and post to the worker for chunked transcription",
+      "Combine with a VAD to send only voiced chunks"
+    ],
+    "tags": ["audioworklet", "streaming", "live-transcription", "code-pattern", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/AudioWorklet"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to use Whisper for transcription",
+      "task name and model id"
+    ],
+    "root_cause": "automatic-speech-recognition is the task; pick a Whisper variant from onnx-community based on size/speed needs.",
+    "fix": [
+      "const transcriber = await pipeline('automatic-speech-recognition', 'onnx-community/whisper-base', { dtype: 'q8' })",
+      "For the smallest cold start: 'onnx-community/whisper-tiny' (~40 MB q8)",
+      "For best quality on capable devices: 'onnx-community/whisper-large-v3-turbo' with WebGPU"
+    ],
+    "tags": ["whisper", "asr", "model-selection", "code-pattern", "audio"],
+    "severity": "low",
+    "frequency": "very-common",
+    "related_docs": ["https://huggingface.co/onnx-community"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to transcribe audio longer than 30 seconds",
+      "Whisper expects 30 s windows"
+    ],
+    "root_cause": "Whisper accepts a 30 s mel spectrogram. Transformers.js handles long-form via chunk_length_s and stride_length_s; the pipeline slices and stitches automatically.",
+    "fix": [
+      "await transcriber(audio, { chunk_length_s: 30, stride_length_s: 5, return_timestamps: true })",
+      "Stride overlap improves boundary stitching",
+      "For very long files, send 1-2 minute slices to the worker so progress can be reported per slice"
+    ],
+    "tags": ["whisper", "long-form", "chunking", "code-pattern", "audio"],
+    "severity": "medium",
+    "frequency": "very-common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want word-level timestamps from Whisper",
+      "render karaoke-style highlight"
+    ],
+    "root_cause": "return_timestamps: 'word' returns per-token times; Transformers.js exposes them in the chunks array.",
+    "fix": [
+      "await transcriber(audio, { return_timestamps: 'word', chunk_length_s: 30, stride_length_s: 5 })",
+      "Output shape: { text, chunks: [{ text, timestamp: [start, end] }] }",
+      "Use the timestamps to drive a visual progress indicator on a waveform"
+    ],
+    "tags": ["whisper", "timestamps", "word-level", "code-pattern", "audio"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want multilingual transcription",
+      "non-English audio"
+    ],
+    "root_cause": "Whisper-multilingual variants accept a language code; pass it via the language option.",
+    "fix": [
+      "await transcriber(audio, { language: 'french', task: 'transcribe' })",
+      "Use task: 'translate' to get an English translation directly",
+      "Distil-whisper variants are English-only; check the model card before passing language"
+    ],
+    "tags": ["whisper", "multilingual", "language", "code-pattern", "audio"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/onnx-community/whisper-base"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want fastest Whisper variant",
+      "real-time transcription"
+    ],
+    "root_cause": "Distil-whisper and whisper-large-v3-turbo are tuned for speed. Combined with WebGPU + fp16/q4, real-time is feasible on capable laptops.",
+    "fix": [
+      "On WebGPU: 'onnx-community/whisper-large-v3-turbo' with { dtype: 'q4', device: 'webgpu' }",
+      "On WASM: 'onnx-community/whisper-base' with { dtype: 'q8' }",
+      "Measure RTF (real-time factor): inference_time / audio_duration; aim for <1.0"
+    ],
+    "tags": ["whisper", "real-time", "rtf", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/onnx-community/whisper-large-v3-turbo"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want voice activity detection before sending to Whisper",
+      "skip silence segments"
+    ],
+    "root_cause": "Silero VAD via Transformers.js (or onnxruntime-web directly) detects voiced segments; only run Whisper on those segments to save compute.",
+    "fix": [
+      "Run a frame-by-frame VAD on the audio stream (e.g., 30 ms frames at 16 kHz)",
+      "Buffer voiced regions; flush to Whisper after a configurable silence timeout (e.g., 800 ms)",
+      "This pattern is typical of streaming ASR apps and dramatically reduces compute"
+    ],
+    "tags": ["vad", "silero", "streaming", "code-pattern", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://github.com/snakers4/silero-vad"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need text-to-speech in the browser",
+      "want to play synthesised speech"
+    ],
+    "root_cause": "text-to-speech tasks run with SpeechT5, MMS-TTS, or Kokoro; output a Float32Array waveform you can play via Web Audio.",
+    "fix": [
+      "const tts = await pipeline('text-to-speech', 'Xenova/speecht5_tts', { quantized: false })",
+      "const out = await tts('Hello world', { speaker_embeddings: speakerEmb })",
+      "Convert out.audio to an AudioBuffer and play through an AudioBufferSourceNode"
+    ],
+    "tags": ["tts", "speecht5", "kokoro", "code-pattern", "audio"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/Xenova/speecht5_tts"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need to play TTS output in the browser",
+      "Float32Array to playback"
+    ],
+    "root_cause": "Wrap the Float32 PCM in an AudioBuffer at the model's sample rate (commonly 16 kHz for SpeechT5 / MMS-TTS, 24 kHz for Kokoro) and start a buffer source.",
+    "fix": [
+      "const ac = new AudioContext()",
+      "const buf = ac.createBuffer(1, audio.length, sampleRate); buf.copyToChannel(audio, 0)",
+      "const src = ac.createBufferSource(); src.buffer = buf; src.connect(ac.destination); src.start()"
+    ],
+    "tags": ["tts-playback", "audiobuffer", "web-audio", "code-pattern", "audio"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/AudioBuffer"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "models hosted on Hugging Face are slow to download from some regions",
+      "want a regional CDN"
+    ],
+    "root_cause": "Hugging Face fronts model files via Cloudflare. From most regions speeds are good; if you have specific geography concerns mirror to your own CDN or to Vercel Blob.",
+    "fix": [
+      "Mirror models to Vercel Blob and serve via @vercel/blob signed URLs",
+      "Update env.remoteHost to point at your blob domain",
+      "Set long cache headers on the blob assets so browsers cache aggressively after first hit"
+    ],
+    "tags": ["vercel-blob", "cdn", "model-host", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": ["https://vercel.com/docs/storage/vercel-blob"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "want to host model files on Vercel Blob",
+      "Vercel Blob doesn't preserve the Hub layout"
+    ],
+    "root_cause": "Vercel Blob stores arbitrary keys; you control the path. Replicate the Hub structure exactly under your blob root for env.remoteHost to resolve files.",
+    "fix": [
+      "Upload to keys like models/onnx-community/whisper-base/onnx/encoder_model.onnx",
+      "Set env.remoteHost = 'https://<store>.public.blob.vercel-storage.com/models/'",
+      "env.remotePathTemplate = '{model}/resolve/{revision}/'",
+      "Issue: Whisper has multiple ONNX files (encoder, decoder, decoder_with_past); upload all of them"
+    ],
+    "tags": ["vercel-blob", "self-host", "configuration", "audio"],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": ["https://vercel.com/docs/storage/vercel-blob"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "Vercel Serverless deploy fails: 'Function size exceeds 50 MB'",
+      "tried to ship Transformers.js inside an API route"
+    ],
+    "root_cause": "Vercel Functions cap at 50 MB unzipped (250 MB on Pro). Transformers.js bundled with weights blows the limit instantly. The whole point of the browser-first architecture is to avoid running the model server-side.",
+    "fix": [
+      "Don't import @huggingface/transformers in any file under app/api/* or pages/api/*",
+      "Move all ML code into a Web Worker that the browser fetches as a static asset",
+      "Run inference on the client; serverless stays for things like CSRF, auth, and metadata"
+    ],
+    "tags": ["vercel", "function-size", "deploy-error", "audio"],
+    "severity": "high",
+    "frequency": "very-common",
+    "related_docs": ["https://vercel.com/docs/functions/serverless-functions/runtimes/node-js#size-limits"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "Vercel Serverless function timed out at 30 s",
+      "tried to transcribe a long audio in an API route"
+    ],
+    "root_cause": "Free Tier max duration is 10 s for Edge and 10/60 s for Node functions depending on plan; Pro maxDuration is 300 s. ML inference with cold starts easily exceeds these.",
+    "fix": [
+      "Don't put inference behind a serverless route — it can't reasonably finish",
+      "If you must run server-side inference for some reason, use a long-running runtime (a separate VM or container) and keep Vercel for the UI",
+      "For 99% of audio apps, do the inference in the browser and skip server-side ML entirely"
+    ],
+    "tags": ["vercel", "timeout", "max-duration", "audio"],
+    "severity": "high",
+    "frequency": "very-common",
+    "related_docs": ["https://vercel.com/docs/functions/runtimes#max-duration"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "want to set COOP/COEP headers on Vercel for SharedArrayBuffer",
+      "WASM threads disabled in production"
+    ],
+    "root_cause": "Vercel doesn't send cross-origin isolation headers by default. Use vercel.json (or next.config.mjs headers()) to add them.",
+    "fix": [
+      "In next.config.mjs export async headers() that returns [{ source: '/(.*)', headers: [{ key: 'Cross-Origin-Opener-Policy', value: 'same-origin' }, { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' }] }]",
+      "Verify with self.crossOriginIsolated === true in the production browser",
+      "Beware: COEP can break third-party iframes and images that don't send CORP"
+    ],
+    "tags": ["coop", "coep", "vercel-headers", "configuration", "audio"],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": ["https://web.dev/articles/coop-coep"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "external images fail after enabling COEP",
+      "third-party iframes blocked"
+    ],
+    "root_cause": "COEP: require-corp blocks any subresource that doesn't send Cross-Origin-Resource-Policy or CORS headers. Many third-party assets don't.",
+    "fix": [
+      "Use credentialless mode where supported: COEP: credentialless (Chrome 96+)",
+      "Self-host critical third-party images so you control headers",
+      "Audit iframes; many third-party widgets break and need replacement"
+    ],
+    "tags": ["coep", "credentialless", "third-party", "configuration"],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": ["https://web.dev/articles/coep-credentialless"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "Vercel Edge Middleware tries to inspect /api/mcp or model files and times out",
+      "middleware adds latency to model fetches"
+    ],
+    "root_cause": "Edge Middleware runs on every request matching its matcher. If the matcher is too broad it intercepts model file fetches and adds a per-request cost.",
+    "fix": [
+      "Restrict middleware matcher to UI routes; exclude /models, /onnx, and any blob path",
+      "Keep middleware tiny — model fetches must be unmediated",
+      "Use vercel.json to set headers instead of middleware where possible"
+    ],
+    "tags": ["middleware", "matcher", "performance", "configuration"],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": ["https://nextjs.org/docs/app/building-your-application/routing/middleware"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want best Vercel region for an audio app",
+      "users complain about slow first load"
+    ],
+    "root_cause": "Static assets ship from Vercel's global CDN; only Functions are region-pinned. Static-only audio apps have minimal regional sensitivity.",
+    "fix": [
+      "Don't pin a region in vercel.json unless you also have Functions",
+      "Let Vercel's edge serve static assets globally",
+      "If you mirror models in your own bucket, place them in a multi-region store"
+    ],
+    "tags": ["vercel", "region", "edge", "best-practice", "audio"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://vercel.com/docs/edge-network/regions"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want minimum scaffolding to host audio app on Vercel",
+      "what files to commit"
+    ],
+    "root_cause": "A working audio app on Vercel needs: app/page.tsx (server component), components/AudioInterface.tsx (client component, dynamic), workers/audio.worker.ts, next.config.mjs with webpack fallbacks + headers().",
+    "fix": [
+      "next.config.mjs sets webpack fallback for fs/path/crypto and a headers() block for COOP/COEP",
+      "app/layout.tsx is the standard root layout",
+      "app/page.tsx renders the dynamic AudioInterface",
+      "components/AudioInterface.tsx ('use client') owns the worker and capture",
+      "workers/audio.worker.ts holds the pipeline and inference"
+    ],
+    "tags": ["scaffolding", "vercel", "nextjs", "best-practice", "audio"],
+    "severity": "low",
+    "frequency": "very-common",
+    "related_docs": ["https://nextjs.org/docs/app/getting-started/installation"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want first paint to be fast",
+      "audio model bytes shouldn't block FCP"
+    ],
+    "root_cause": "Model files are 40-500+ MB. Don't auto-load them on first paint. Trigger the download from a user action (Record / Try button) so initial paint stays light.",
+    "fix": [
+      "Show the empty UI shell immediately; gate model load behind a click",
+      "Provide a 'Download speech model (NN MB)' CTA",
+      "Once loaded, persist that the model is cached and skip the CTA on return visits"
+    ],
+    "tags": ["fcp", "first-paint", "ux", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "very-common",
+    "related_docs": ["https://web.dev/articles/fcp"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to detect if user has a cached model",
+      "skip Download CTA on return visits"
+    ],
+    "root_cause": "IndexedDB exposes the cache; query for the model file key to check if it's already downloaded.",
+    "fix": [
+      "Open 'transformers-cache' DB and check whether the expected key exists",
+      "Or attempt a small fetch with cache-only semantics and fall back to the CTA",
+      "Persist a localStorage flag once a successful first-load completes; cheap and reliable"
+    ],
+    "tags": ["cache-detection", "ux", "indexeddb", "code-pattern", "audio"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/env"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need to stream Whisper output token-by-token",
+      "want live partial transcripts"
+    ],
+    "root_cause": "Whisper exposes a callback_function via TextStreamer; tokens are emitted during decoding so partials can stream to the UI.",
+    "fix": [
+      "Create a TextStreamer with skip_prompt: true and route tokens via postMessage to the UI",
+      "Append to a transcript buffer; rerender at requestAnimationFrame cadence",
+      "On chunk_length_s boundaries, mark a hard split in the UI to indicate a stable partial"
+    ],
+    "tags": ["whisper", "text-streamer", "live-transcript", "code-pattern", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/generation/streamers"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to transcribe an uploaded audio file",
+      "support drag-and-drop"
+    ],
+    "root_cause": "File uploads work the same as MediaRecorder output: read as ArrayBuffer, decode via AudioContext, resample, send to worker.",
+    "fix": [
+      "Accept files via <input type='file' accept='audio/*'>",
+      "Use the same decode + resample helper as the recorder path",
+      "Cap file size in the UI (e.g., 30 MB) and warn users about long transcription times"
+    ],
+    "tags": ["file-upload", "drag-drop", "ux", "best-practice", "audio"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/HTML/Element/input/file"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to support both record and upload flows",
+      "DRY between paths"
+    ],
+    "root_cause": "Both produce a Float32Array; share the post-decode pipeline so the worker receives one canonical shape.",
+    "fix": [
+      "Define const toMonoFloat32At16k = async (input: Blob | File): Promise<Float32Array> => { ... }",
+      "Both record and upload buttons call this helper before postMessage",
+      "Worker stays simple: { type: 'transcribe', audio: Float32Array }"
+    ],
+    "tags": ["dry", "audio-helper", "code-pattern", "best-practice", "audio"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/OfflineAudioContext"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "users record very long audio and run out of memory",
+      "browser tab crashes after 30+ minutes"
+    ],
+    "root_cause": "Holding a 30+ minute Float32Array in memory doubles when posted to the worker (clone). Switch to streaming chunks rather than one giant buffer.",
+    "fix": [
+      "Cut audio at chunk boundaries (e.g., every 60 s) and post each chunk separately",
+      "Use transferables ([buffer.buffer]) so each post is zero-copy",
+      "Append per-chunk results into the final transcript on the UI"
+    ],
+    "tags": ["long-audio", "memory", "chunking", "best-practice", "audio"],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want a waveform visualisation while recording",
+      "show audio levels"
+    ],
+    "root_cause": "AnalyserNode in the Web Audio API exposes time-domain and frequency-domain data; render to a canvas at requestAnimationFrame.",
+    "fix": [
+      "const ac = new AudioContext(); const src = ac.createMediaStreamSource(stream); const analyser = ac.createAnalyser(); src.connect(analyser)",
+      "Inside rAF: analyser.getFloatTimeDomainData(arr) and draw bars or a line",
+      "Stop the loop and disconnect when recording ends to free CPU"
+    ],
+    "tags": ["analysernode", "waveform", "ui", "code-pattern", "audio"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/AnalyserNode"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to handle microphone permission denied gracefully",
+      "user blocks mic"
+    ],
+    "root_cause": "getUserMedia rejects with NotAllowedError or SecurityError; the UI must guide users to re-enable in browser settings.",
+    "fix": [
+      "Catch the rejection and present a permission-request UI",
+      "Detect navigator.permissions.query({ name: 'microphone' }) state to know if it's denied vs prompt",
+      "Provide a fallback to file-upload mode when mic isn't available"
+    ],
+    "tags": ["permissions", "ux", "error-handling", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/Permissions_API"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "model worker fails to start on first load",
+      "error before pipeline returns"
+    ],
+    "root_cause": "Model load can fail for many reasons: 404, network blip, dtype not supported. Provide good error messages and a retry path.",
+    "fix": [
+      "Wrap getPipe() in try/catch and post { type: 'error', message } back to UI",
+      "Display a Retry button that re-invokes the load",
+      "Distinguish recoverable (network) from unrecoverable (404 / dtype) failures and show different copy"
+    ],
+    "tags": ["error-handling", "retry", "ux", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want chunked progressive transcription UI",
+      "show running transcript as audio is processed"
+    ],
+    "root_cause": "Slice the buffer into N-second pieces and transcribe sequentially; the UI updates as each chunk completes for an apparent live feel.",
+    "fix": [
+      "Slice into 30s chunks with a 5s overlap",
+      "For each chunk, postMessage to the worker and await the response before sending the next",
+      "Append text to the running transcript with a fade-in animation per chunk"
+    ],
+    "tags": ["chunking", "progressive", "ux", "code-pattern", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want lowest cold-start cost on Vercel",
+      "users land and bounce before model loads"
+    ],
+    "root_cause": "Cold start time is dominated by model download. Pick the smallest model + dtype that meets accuracy and load on demand.",
+    "fix": [
+      "Default to whisper-tiny + dtype 'q8' for the bounce-tolerant first impression",
+      "Offer a 'better quality' upgrade that loads whisper-base only on user request",
+      "Persist the choice and skip the choice on return visits"
+    ],
+    "tags": ["cold-start", "model-size", "ux", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "very-common",
+    "related_docs": ["https://huggingface.co/onnx-community"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to maximise quality on capable hardware",
+      "use bigger model when WebGPU available"
+    ],
+    "root_cause": "Conditional model loading lets you opt the user up to a stronger model when the GPU is available.",
+    "fix": [
+      "if (hasWebGPU) load whisper-large-v3-turbo with { dtype: 'q4', device: 'webgpu' }",
+      "else load whisper-base with { dtype: 'q8', device: 'wasm' }",
+      "Tell the user which model is in use so quality differences are explained"
+    ],
+    "tags": ["progressive-enhancement", "webgpu", "model-size", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/guides/webgpu"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "audio samples have wrong dtype going into Whisper",
+      "RangeError: Wrong dtype 'float64'"
+    ],
+    "root_cause": "Whisper expects Float32. AudioBuffer.getChannelData returns Float32Array but if you copy via Array.from or use Float64Array elsewhere it breaks.",
+    "fix": [
+      "Always coerce: const f32 = audio instanceof Float32Array ? audio : new Float32Array(audio)",
+      "Avoid Array.from on PCM data — it makes a regular Array, which doesn't match",
+      "Verify: console.log(f32.constructor.name, f32.length)"
+    ],
+    "tags": ["dtype", "float32", "whisper-input", "configuration", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "audio sample rate is 44100 and Whisper output is gibberish",
+      "model trained on 16kHz"
+    ],
+    "root_cause": "Whisper's mel filterbank expects 16 kHz; sending 44.1 kHz raw samples produces nonsense because the time axis is wrong by ~2.75x.",
+    "fix": [
+      "Resample with OfflineAudioContext to 16000 before sending",
+      "Confirm rendered.sampleRate === 16000 after rendering",
+      "If using AudioWorklet streaming, downsample frame-by-frame with a 4-tap polyphase filter"
+    ],
+    "tags": ["sample-rate", "16khz", "resample", "configuration", "audio"],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/OfflineAudioContext"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want consistent recording volume",
+      "transcription quality varies by mic distance"
+    ],
+    "root_cause": "Auto-gain helps consistency. getUserMedia accepts constraints to enable browser-side AGC, echo cancellation, and noise suppression.",
+    "fix": [
+      "navigator.mediaDevices.getUserMedia({ audio: { autoGainControl: true, echoCancellation: true, noiseSuppression: true, channelCount: 1 } })",
+      "Constraints are advisory; some browsers/devices ignore them",
+      "Ask users to position the mic 6-10 inches away in onboarding copy"
+    ],
+    "tags": ["agc", "noise-suppression", "audio-quality", "best-practice", "audio"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/MediaTrackConstraints"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to speed up transcription with WebGPU",
+      "see WebGPU benefit on Whisper"
+    ],
+    "root_cause": "WebGPU drastically accelerates Whisper encoder/decoder compared to WASM SIMD. Use { device: 'webgpu' } and pick a fp16 / q4 dtype tuned for GPU.",
+    "fix": [
+      "await pipeline('automatic-speech-recognition', 'onnx-community/whisper-base', { device: 'webgpu', dtype: { encoder_model: 'fp16', decoder_model_merged: 'q4' } })",
+      "Benchmark: WebGPU on a recent laptop gets 5-10x WASM",
+      "Always feature-detect; fall back to WASM on failure"
+    ],
+    "tags": ["webgpu", "whisper", "performance", "code-pattern", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/guides/webgpu"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "performance_case",
+    "symptoms": [
+      "Whisper-base on WASM SIMD takes 25s for 30s of audio",
+      "RTF ~0.83 on a mid-range laptop"
+    ],
+    "root_cause": "WASM SIMD threaded with COOP/COEP enabled can hit RTF ~0.8 on whisper-base q8. Without threads it's 2-3x slower.",
+    "fix": [
+      "Verify cross-origin isolation (self.crossOriginIsolated === true)",
+      "Set env.backends.onnx.wasm.numThreads to navigator.hardwareConcurrency / 2",
+      "Switch to whisper-tiny on lower-end devices to keep RTF under 1.0"
+    ],
+    "tags": ["benchmark", "rtf", "wasm-simd", "performance-case", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://web.dev/articles/coop-coep"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "performance_case",
+    "symptoms": [
+      "Whisper-base on WebGPU runs at RTF ~0.1",
+      "10x faster than WASM"
+    ],
+    "root_cause": "WebGPU with fp16 encoder + q4 decoder is the fastest combo for Whisper-base today; 30s of audio transcribes in ~3s on a recent dGPU.",
+    "fix": [
+      "Use { device: 'webgpu', dtype: { encoder_model: 'fp16', decoder_model_merged: 'q4' } }",
+      "Track GPU load on the Performance panel",
+      "WebGPU is browser/OS dependent; always provide WASM fallback"
+    ],
+    "tags": ["webgpu", "performance-case", "whisper", "rtf", "audio"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/guides/webgpu"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to keep audio data private",
+      "users worry about cloud upload"
+    ],
+    "root_cause": "Browser-only inference is a privacy win — audio never leaves the device. Make the privacy story explicit in the UI to build trust.",
+    "fix": [
+      "Display a 'Your audio never leaves your device' note prominently",
+      "Avoid analytics that capture transcript content; only emit aggregate metrics",
+      "Use COEP: require-corp + a tight CSP to prevent third-party script exfiltration"
+    ],
+    "tags": ["privacy", "trust", "ux", "best-practice", "audio"],
+    "severity": "low",
+    "frequency": "very-common",
+    "related_docs": ["https://web.dev/articles/csp"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to harden CSP for the audio app",
+      "third-party trackers leak audio app data"
+    ],
+    "root_cause": "Transformers.js loads code from your origin and weights from huggingface.co or a configured CDN. A tight CSP plus connect-src allowlist keeps everything else out.",
+    "fix": [
+      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; connect-src 'self' https://huggingface.co https://*.huggingface.co",
+      "If you mirror weights to your own bucket, add that origin to connect-src",
+      "wasm-unsafe-eval is required for ONNX Runtime Web"
+    ],
+    "tags": ["csp", "security", "wasm-unsafe-eval", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://web.dev/articles/csp"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "page reloads silently in the middle of transcription",
+      "iOS aborts long workers"
+    ],
+    "root_cause": "iOS aggressively reclaims memory and may suspend or terminate Web Workers on backgrounded tabs. Background tab behaviour also varies by browser.",
+    "fix": [
+      "Use Page Visibility API to pause inference when document.hidden",
+      "Show a 'Keep this tab visible while transcribing' note in the UI",
+      "Don't expect long jobs to complete in a background tab on mobile"
+    ],
+    "tags": ["page-visibility", "ios", "background-tab", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/Page_Visibility_API"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to allow downloading transcript",
+      "user wants TXT or SRT export"
+    ],
+    "root_cause": "Once Whisper returns the transcript with timestamps, build a Blob and trigger a download with a hidden anchor.",
+    "fix": [
+      "TXT: const blob = new Blob([transcript.text], { type: 'text/plain' })",
+      "SRT: format chunks with timestamps as 'idx\\n00:00:00,000 --> 00:00:05,000\\ntext\\n\\n'",
+      "Trigger: const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'transcript.srt'; a.click()"
+    ],
+    "tags": ["export", "srt", "txt", "code-pattern", "audio"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/Blob"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to translate audio directly",
+      "user records French and wants English text"
+    ],
+    "root_cause": "Whisper's task option supports 'translate' which always emits English. Bypasses a separate translation pipeline for many use cases.",
+    "fix": [
+      "await transcriber(audio, { task: 'translate', language: 'french' })",
+      "Output is English regardless of input language",
+      "For non-English targets, transcribe then run a separate translation pipeline"
+    ],
+    "tags": ["whisper", "translate-task", "code-pattern", "audio"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "Whisper hallucinates lyrics or repeated phrases on silent audio",
+      "transcript invents content"
+    ],
+    "root_cause": "Whisper is known to hallucinate on silent or noisy segments. Run a VAD upstream to skip silence, and use no_speech_threshold to filter low-confidence outputs.",
+    "fix": [
+      "Pre-filter audio with Silero VAD; only run Whisper on voiced regions",
+      "Pass { no_speech_threshold: 0.6 } to suppress likely hallucinations",
+      "On long files use stride_length_s + chunk_length_s with overlap to stitch boundaries cleanly"
+    ],
+    "tags": ["whisper", "hallucination", "vad", "configuration", "audio"],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": ["https://github.com/openai/whisper/discussions"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to measure end-to-end latency for live ASR",
+      "user perceives lag"
+    ],
+    "root_cause": "End-to-end latency = audio capture frame size + post to worker + inference + post back + render. Each stage matters; instrument them all.",
+    "fix": [
+      "Tag each message with a t_emit timestamp; subtract on receipt for inference + transport time",
+      "Measure capture frame size separately (smaller frames = lower latency, more overhead)",
+      "Aim for sub-300 ms end-to-end on whisper-tiny WebGPU"
+    ],
+    "tags": ["latency", "instrumentation", "live-asr", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/guides/webgpu"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to fall back gracefully when Whisper download fails",
+      "offer 'try again later' message"
+    ],
+    "root_cause": "Network failures during a multi-hundred-MB model download are common. Provide a clear retry-with-backoff loop and avoid silent stalls.",
+    "fix": [
+      "Wrap pipeline() in a retry loop with exponential backoff (1s, 2s, 4s, max 3 retries)",
+      "Show 'Retrying download…' state during retries",
+      "On final failure, offer an explicit Try Again button rather than auto-retrying"
+    ],
+    "tags": ["retry", "network", "ux", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/utils/hub"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to combine VAD + Whisper for streaming live transcription",
+      "build a real-time captioning UI"
+    ],
+    "root_cause": "Pattern: AudioWorklet emits frames -> ring buffer -> VAD scores frames -> on speech start buffer; on speech end (silence > 800ms) flush to Whisper -> render partial.",
+    "fix": [
+      "AudioWorkletProcessor posts 16 kHz mono Float32 frames to the main thread",
+      "Main thread runs VAD per frame; collects voiced frames into a buffer",
+      "On end-of-utterance (silence threshold), postMessage to Whisper worker",
+      "Render the returned text to the captions UI"
+    ],
+    "tags": ["streaming-asr", "vad", "audio-worklet", "code-pattern", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want fewer but stable VAD chunks",
+      "Whisper called too often per utterance"
+    ],
+    "root_cause": "VAD parameters control how aggressive end-of-speech detection is. Tune them to balance latency vs over-segmentation.",
+    "fix": [
+      "Silence threshold: 800-1200 ms gives natural utterance boundaries",
+      "Min speech duration: 300 ms filters out clicks",
+      "Pre-padding 200 ms before voiced start avoids cutting first phoneme"
+    ],
+    "tags": ["vad", "tuning", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://github.com/snakers4/silero-vad"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to log only errors in production audio app",
+      "Whisper progress logs flooding logs"
+    ],
+    "root_cause": "Setting env.backends.onnx.logSeverityLevel and disabling default progress callbacks keeps production console quiet.",
+    "fix": [
+      "env.backends.onnx.logSeverityLevel = 3 // error and above",
+      "Always pass an explicit progress_callback so the default logger is replaced",
+      "Forward only fatal errors to your own logging service"
+    ],
+    "tags": ["logging", "production", "best-practice", "audio"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://onnxruntime.ai/docs/tutorials/web/env-flags-and-session-options.html"],
+    "version": "onnxruntime-web@1.18+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "Vercel build succeeds but runtime errors with 'window is not defined'",
+      "module-level pipeline() crashed during prerender"
+    ],
+    "root_cause": "Calling pipeline() at module top level in any file imported by an SSR-rendered page runs the call on Vercel's Node runtime, where window is undefined.",
+    "fix": [
+      "Never call pipeline() at module top level — only inside a worker or a client-side useEffect",
+      "Confirm the only import of @huggingface/transformers is inside workers/audio.worker.ts",
+      "Use grep to verify no app/* or components/* file imports the package directly"
+    ],
+    "tags": ["ssr", "vercel", "module-side-effect", "configuration", "audio"],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": ["https://nextjs.org/docs/app/building-your-application/rendering"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to keep the Vercel deployment small",
+      "build artifact too large"
+    ],
+    "root_cause": "Static-only audio apps deploy small JS bundles; the issue is when ONNX wasm files or models accidentally land in the deployment.",
+    "fix": [
+      "Don't copy ort wasm to public/ — leave them on a CDN via env.backends.onnx.wasm.wasmPaths",
+      "If you must self-host wasm, copy only the SIMD threaded variant (~8 MB)",
+      "Never commit ONNX models into the repo; load from HF or Vercel Blob"
+    ],
+    "tags": ["bundle-size", "vercel", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://vercel.com/docs/deployments/limits/overview"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "ort-wasm-simd-threaded.jsep.wasm 404 in production",
+      "ONNX Runtime Web wasm files missing on Vercel"
+    ],
+    "root_cause": "The default wasmPaths points to a relative path that may not be served by the static host. You must either copy the files to a public folder or point at the unpkg/jsdelivr CDN.",
+    "fix": [
+      "CDN approach: env.backends.onnx.wasm.wasmPaths = `https://cdn.jsdelivr.net/npm/onnxruntime-web@<exact-version>/dist/`",
+      "Self-host approach: copy node_modules/onnxruntime-web/dist/*.wasm to public/onnx and set wasmPaths = '/onnx/'",
+      "Pin the version in package.json so the CDN URL stays valid across deploys"
+    ],
+    "tags": ["onnxruntime-web", "wasm-paths", "vercel", "configuration", "audio"],
+    "severity": "high",
+    "frequency": "very-common",
+    "related_docs": ["https://onnxruntime.ai/docs/tutorials/web/env-flags-and-session-options.html"],
+    "version": "onnxruntime-web@1.18+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to avoid worker pool churn on every page navigation",
+      "audio worker recreated on each route change"
+    ],
+    "root_cause": "Mount the worker high in the React tree (e.g., inside the root layout or a client provider) so SPA navigation between routes leaves it intact.",
+    "fix": [
+      "Create a WorkerProvider client component and place it in app/layout.tsx (still server component-friendly via children)",
+      "Provide the worker instance through React context",
+      "Consumer components subscribe via useContext and don't manage worker lifecycle"
+    ],
+    "tags": ["worker-lifecycle", "react-context", "spa", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://react.dev/reference/react/useContext"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want a useTranscription React hook",
+      "encapsulate worker + state"
+    ],
+    "root_cause": "Wrap the worker boilerplate in a custom hook so any component can transcribe with three lines.",
+    "fix": [
+      "function useTranscription() { const w = useContext(WorkerContext); const [text, setText] = useState(''); useEffect(() => { const h = (e) => e.data.type === 'token' && setText(t => t + e.data.txt); w.addEventListener('message', h); return () => w.removeEventListener('message', h) }, [w]); return { transcribe: (audio) => w.postMessage({ type: 'transcribe', audio }, [audio.buffer]), text } }",
+      "Component: const { transcribe, text } = useTranscription()",
+      "Resets text on a new transcribe call by setting setText('') first"
+    ],
+    "tags": ["react-hook", "abstraction", "code-pattern", "audio"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://react.dev/learn/reusing-logic-with-custom-hooks"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "vercel.json headers not applied",
+      "COOP/COEP missing in production"
+    ],
+    "root_cause": "vercel.json headers apply only when the file is at the project root; missing or malformed JSON silently disables them.",
+    "fix": [
+      "vercel.json at repo root with: { \"headers\": [{ \"source\": \"/(.*)\", \"headers\": [{ \"key\": \"Cross-Origin-Opener-Policy\", \"value\": \"same-origin\" }, { \"key\": \"Cross-Origin-Embedder-Policy\", \"value\": \"require-corp\" }] }] }",
+      "Or move headers into next.config.mjs export async headers() — Next.js takes precedence",
+      "Verify with curl -I https://my.app and check the response headers"
+    ],
+    "tags": ["vercel-json", "headers", "coop", "coep", "configuration", "audio"],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": ["https://vercel.com/docs/projects/project-configuration#headers"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to A/B test small vs large Whisper",
+      "decide which to ship by default"
+    ],
+    "root_cause": "Different users have different network and hardware. Measure before committing to a default.",
+    "fix": [
+      "Bucket users by hasWebGPU + hardwareConcurrency",
+      "Measure cold load + RTF + transcript quality (e.g., word error rate vs ground truth)",
+      "Default the smallest viable variant per bucket; let power users opt up"
+    ],
+    "tags": ["a-b-test", "model-size", "best-practice", "audio"],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/guides/dtypes"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to comply with GDPR / sensitive audio policies",
+      "legal asks where audio is processed"
+    ],
+    "root_cause": "Browser-only inference means audio bytes never leave the user's device. This dramatically simplifies privacy and compliance posture.",
+    "fix": [
+      "Document the architecture: 'audio processed locally in your browser, never uploaded'",
+      "Don't add server-side analytics that capture transcript content",
+      "Make weight downloads optional and show their size and origin"
+    ],
+    "tags": ["privacy", "gdpr", "compliance", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": ["https://gdpr.eu/"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to play short audio cues during recording",
+      "start/stop sound effects"
+    ],
+    "root_cause": "Web Audio API plays decoded audio buffers; pre-load short PCM/WAV files into AudioBuffers at app start.",
+    "fix": [
+      "const ac = new AudioContext(); const buf = await ac.decodeAudioData(await (await fetch('/sfx/start.wav')).arrayBuffer())",
+      "Play: const src = ac.createBufferSource(); src.buffer = buf; src.connect(ac.destination); src.start()",
+      "iOS requires a user-gesture-triggered ac.resume() before any audio plays"
+    ],
+    "tags": ["sfx", "web-audio", "code-pattern", "audio"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/AudioContext"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "AudioContext is suspended on iOS until first tap",
+      "Web Audio silent on iPhone"
+    ],
+    "root_cause": "iOS only resumes AudioContext after a user gesture (touchend/click). Creating it before that leaves it suspended.",
+    "fix": [
+      "Lazy-create the AudioContext inside an onClick handler",
+      "Or call ac.resume() inside the first user gesture",
+      "Detect: if (ac.state !== 'running') await ac.resume()"
+    ],
+    "tags": ["ios", "audiocontext", "user-gesture", "configuration", "audio"],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/AudioContext/state"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to render a live audio waveform while recording",
+      "show recording activity in the UI"
+    ],
+    "root_cause": "Connect getUserMedia stream to an AnalyserNode, then animate a canvas drawing the time-domain data each frame.",
+    "fix": [
+      "const src = ac.createMediaStreamSource(stream); const an = ac.createAnalyser(); an.fftSize = 1024; src.connect(an)",
+      "rAF loop: an.getFloatTimeDomainData(buf); draw(buf) on the canvas",
+      "Stop the loop on recording end and disconnect to free CPU"
+    ],
+    "tags": ["waveform", "canvas", "analyser", "code-pattern", "audio"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/AnalyserNode"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to show input audio level (VU meter)",
+      "indicate microphone is picking up sound"
+    ],
+    "root_cause": "Compute RMS or peak from the time-domain buffer to drive a level meter; this is much cheaper than a full waveform.",
+    "fix": [
+      "rms = sqrt(mean(samples^2)); db = 20 * log10(max(rms, 1e-6))",
+      "Map [-60dB, 0dB] to [0%, 100%] for a meter",
+      "Update at ~30 Hz for smoothness without overdrawing"
+    ],
+    "tags": ["vu-meter", "rms", "ux", "best-practice", "audio"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/AnalyserNode"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want stable model URLs across releases for cache hits",
+      "cache invalidates after every deploy"
+    ],
+    "root_cause": "Transformers.js keys IndexedDB entries by URL. Build hashes appended to model paths invalidate the cache on every deploy.",
+    "fix": [
+      "Don't hash model URLs; only hash JS/CSS bundles",
+      "If you must rotate weights, do it explicitly via a revision pin so users opt into the redownload",
+      "Mirror to immutable storage (Vercel Blob with deterministic keys) to lock URLs"
+    ],
+    "tags": ["cache-stability", "url-hashing", "deploy", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/env"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to limit deployment cost on Vercel for an audio app",
+      "free-tier safety"
+    ],
+    "root_cause": "Static-only deployments are essentially free on Vercel. Avoid serverless functions and edge middleware for the audio path entirely; only use them for non-ML concerns.",
+    "fix": [
+      "Don't put inference behind /api/* — keep all ML in the browser",
+      "Use Edge Middleware sparingly (per-request cost)",
+      "Audit Vercel Analytics for unexpected function invocations"
+    ],
+    "tags": ["vercel", "cost", "free-tier", "best-practice", "audio"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://vercel.com/docs/pricing"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to attach metadata to a transcript (start time, model used)",
+      "store sessions for replay"
+    ],
+    "root_cause": "Wrap each transcript in a session object with model id, dtype, device, started_at, ended_at, and the chunks; persist to IndexedDB or a server.",
+    "fix": [
+      "Define type Session = { id: string; modelId: string; dtype: string; device: string; chunks: Chunk[]; startedAt: number; endedAt: number }",
+      "Persist via IndexedDB on session end",
+      "Avoid uploading raw audio; if you must persist, store transcripts only"
+    ],
+    "tags": ["session-storage", "metadata", "indexeddb", "code-pattern", "audio"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/IndexedDB_API"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to verify mic permission before showing record button",
+      "avoid permission prompt mid-flow"
+    ],
+    "root_cause": "navigator.permissions.query lets you read microphone state without prompting.",
+    "fix": [
+      "const status = await navigator.permissions.query({ name: 'microphone' })",
+      "If status.state === 'denied' show an instruction to re-enable in browser settings",
+      "Listen to status.onchange to refresh UI when the user grants permission"
+    ],
+    "tags": ["permissions", "ux", "microphone", "best-practice", "audio"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/Permissions_API"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to show different UI based on device class",
+      "low-end mobile gets simpler UI"
+    ],
+    "root_cause": "Combine navigator.deviceMemory, hardwareConcurrency, and a WebGPU probe to estimate device class for graceful degradation.",
+    "fix": [
+      "score = (deviceMemory ?? 4) + (hardwareConcurrency ?? 4) + (hasWebGPU ? 4 : 0)",
+      "score < 6: whisper-tiny + small UI",
+      "score >= 12: whisper-base + full UI with live waveform"
+    ],
+    "tags": ["device-class", "progressive-enhancement", "ux", "best-practice", "audio"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/Navigator/deviceMemory"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "need to handle a flaky network during a long model download",
+      "want resumable downloads"
+    ],
+    "root_cause": "ONNX Runtime Web fetches files in one go; partial downloads abort and restart on retry. The HF CDN supports range requests, but Transformers.js doesn't currently use them.",
+    "fix": [
+      "Catch network errors in the worker and post a 'network-error' state to UI",
+      "Show Retry button; users on flaky networks may need several attempts",
+      "For very large models, consider mirroring to a CDN you control with HTTP/2 or HTTP/3 for better recovery"
+    ],
+    "tags": ["network", "retry", "model-download", "code-pattern", "audio"],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/utils/hub"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to align Whisper output with original audio for playback",
+      "show karaoke-style highlight"
+    ],
+    "root_cause": "With return_timestamps: 'word', each chunk has a timestamp pair. Sync them with HTMLAudioElement currentTime to highlight the active word.",
+    "fix": [
+      "Render words with data-start/data-end attributes",
+      "On playback timeupdate event, find the word whose [start, end] contains audio.currentTime",
+      "Update the highlighted word; throttle to ~10 Hz with requestAnimationFrame"
+    ],
+    "tags": ["timestamps", "playback-sync", "karaoke", "best-practice", "audio"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/HTMLMediaElement/timeupdate_event"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to test the audio app locally with HTTPS",
+      "getUserMedia needs secure context"
+    ],
+    "root_cause": "localhost is a secure context, so getUserMedia works without HTTPS in dev. Custom hostnames (e.g. dev.local) need a self-signed cert.",
+    "fix": [
+      "Stick to http://localhost:3000 for normal dev",
+      "For LAN testing, use mkcert to issue a local cert and run next dev --experimental-https",
+      "Never deploy a non-HTTPS preview that needs the mic — secure context is required"
+    ],
+    "tags": ["dev-https", "localhost", "secure-context", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": ["https://github.com/FiloSottile/mkcert"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "Webpack 5 chunk-split warning when bundling worker",
+      "import inside worker fails at runtime"
+    ],
+    "root_cause": "When workers import shared modules, Webpack must emit a separate chunk graph for them. Misconfigured output.workerChunkLoading or output.workerPublicPath causes runtime resolution failures.",
+    "fix": [
+      "In Next.js the defaults work — stick to new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })",
+      "Avoid dynamic-string Worker paths that hide the import from the bundler",
+      "If you customise webpack, leave output.workerChunkLoading and output.workerPublicPath at their defaults"
+    ],
+    "tags": ["webpack", "worker-chunks", "configuration", "audio"],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": ["https://webpack.js.org/configuration/output/#outputworkerchunkloading"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to show useful errors when WebGPU init fails",
+      "users see generic 'Error' message"
+    ],
+    "root_cause": "WebGPU adapter request can fail for many reasons (driver, OS, blocklist). Surface a friendly fallback rather than a stack trace.",
+    "fix": [
+      "Wrap pipeline init in try/catch; on failure log the error and re-init with { device: 'wasm' }",
+      "Tell the user 'GPU acceleration unavailable, using CPU' so they understand the slower experience",
+      "Don't auto-toggle device mid-session; reload the worker on user request to swap"
+    ],
+    "tags": ["webgpu", "fallback", "ux", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/guides/webgpu"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "Vercel build complains about transformers.js eval",
+      "CSP violation from wasm code"
+    ],
+    "root_cause": "ONNX Runtime Web requires WebAssembly compilation, which violates strict CSP. Allow wasm-unsafe-eval in script-src.",
+    "fix": [
+      "script-src 'self' 'wasm-unsafe-eval' — required for ORT",
+      "Don't use 'unsafe-eval'; the wasm-specific directive is sufficient",
+      "Validate with the browser DevTools console; CSP violations are logged there"
+    ],
+    "tags": ["csp", "wasm-unsafe-eval", "vercel", "configuration", "audio"],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/HTTP/Headers/Content-Security-Policy/script-src#unsafe-wasm-eval"],
+    "version": "onnxruntime-web@1.18+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to show users the model is loaded and ready",
+      "no clear ready signal"
+    ],
+    "root_cause": "After pipeline() resolves, send a { type: 'ready' } message back to the UI so the record button becomes enabled.",
+    "fix": [
+      "Worker: const pipe = await getPipe(); self.postMessage({ type: 'ready' })",
+      "UI: disable Record until ready=true",
+      "Persist ready state in component state and clear on worker reload"
+    ],
+    "tags": ["ready-signal", "ux", "code-pattern", "best-practice", "audio"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/Worker/postMessage"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to keep recording while transcribing previous chunks",
+      "live transcription needs concurrent capture and inference"
+    ],
+    "root_cause": "Capture happens on the main thread (or AudioWorklet), inference in the worker. They run in parallel by design — just queue chunks into the worker without blocking capture.",
+    "fix": [
+      "Maintain a chunk queue in the UI; postMessage each chunk as it's ready",
+      "Use a unique chunk id so out-of-order responses are still placed correctly",
+      "Bound the queue length; drop the oldest if the user records faster than the worker can transcribe"
+    ],
+    "tags": ["concurrent", "queue", "live", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to detect when first chunk transcription completes",
+      "show 'first words appearing' state"
+    ],
+    "root_cause": "Use chunk ids and a Map<id, status> to track per-chunk progress and signal first completion.",
+    "fix": [
+      "On send: pending.set(id, { startedAt: Date.now() })",
+      "On receive: const entry = pending.get(id); if (entry && !firstCompleted) { firstCompleted = true; onFirstChunk(entry) }",
+      "Use this hook to show a 'Processing audio…' -> 'Live transcription' transition"
+    ],
+    "tags": ["chunk-tracking", "ux", "code-pattern", "audio"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want a fallback for browsers without WebAssembly",
+      "very old browser support"
+    ],
+    "root_cause": "Transformers.js requires WebAssembly. Browsers without it (very old IE-era) can't run inference at all.",
+    "fix": [
+      "Detect: if (typeof WebAssembly === 'undefined') showUnsupportedUI()",
+      "Show a clear 'browser not supported' page for those users",
+      "Don't try to polyfill WebAssembly — it isn't a viable option"
+    ],
+    "tags": ["browser-support", "wasm-required", "best-practice", "audio"],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": ["https://caniuse.com/wasm"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to expose a 'download all models' button",
+      "let users prefetch for offline"
+    ],
+    "root_cause": "Pipeline() warms the cache via the same fetch path. Calling it without performing inference is enough to populate IndexedDB.",
+    "fix": [
+      "On 'Download for offline' click, call pipeline() with a progress_callback and discard the result",
+      "After resolution, mark localStorage flag and surface 'Ready offline' in the UI",
+      "Skip the prefetch on metered connections (navigator.connection?.saveData)"
+    ],
+    "tags": ["prefetch", "offline", "ux", "best-practice", "audio"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/Network_Information_API"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to show formatted transcript with paragraph breaks",
+      "raw text is one giant block"
+    ],
+    "root_cause": "Whisper returns punctuation but no paragraph breaks. Insert breaks at long pauses between chunks.",
+    "fix": [
+      "Inspect chunk timestamps; if gap > 2s between chunks insert a paragraph break",
+      "Or detect end-of-utterance via ending punctuation (.!?)",
+      "Render with whitespace: pre-line so newlines flow visually"
+    ],
+    "tags": ["formatting", "paragraph", "code-pattern", "audio"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to avoid auto-scroll jank in long transcripts",
+      "user can't read because list keeps scrolling"
+    ],
+    "root_cause": "Naive auto-scroll on every token interrupts the user. Only auto-scroll when they're at the bottom.",
+    "fix": [
+      "Track if scrollTop + clientHeight >= scrollHeight - threshold (e.g., 50 px)",
+      "Only call scrollIntoView when the user is at the bottom",
+      "Disable auto-scroll once user scrolls up; re-enable on next bottom-touch"
+    ],
+    "tags": ["auto-scroll", "ux", "best-practice", "audio"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/Element/scrollHeight"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to test audio capture without a mic",
+      "CI runs need a deterministic audio source"
+    ],
+    "root_cause": "Playwright/Chromium can be launched with --use-fake-ui-for-media-stream and --use-file-for-fake-audio-capture to feed a pre-recorded WAV.",
+    "fix": [
+      "launchOptions.args = ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream', `--use-file-for-fake-audio-capture=${path}`]",
+      "Use a known good speech sample so transcripts are stable",
+      "Compare transcripts against a fuzzy-tolerant assertion (Levenshtein <= N edits)"
+    ],
+    "tags": ["e2e", "playwright", "fake-audio", "best-practice", "audio"],
+    "severity": "low",
+    "frequency": "rare",
+    "related_docs": ["https://playwright.dev/docs/api/class-browsertype#browser-type-launch"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "Next.js Turbopack: 'Error compiling worker'",
+      "new Worker(new URL(...), {type:'module'}) breaks on Turbopack"
+    ],
+    "root_cause": "Turbopack support for Web Workers has matured but some patterns still differ from Webpack. Verify on the Next.js version in use.",
+    "fix": [
+      "Use the standard pattern: new Worker(new URL('./audio.worker.ts', import.meta.url), { type: 'module' })",
+      "If Turbopack fails, fall back to next dev with the default Webpack until you upgrade",
+      "Track the Next.js release notes for Turbopack worker support"
+    ],
+    "tags": ["turbopack", "worker", "configuration", "audio"],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": ["https://nextjs.org/docs/app/api-reference/turbopack"],
+    "version": "next@14+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to support installation as PWA",
+      "users want offline app icon on home screen"
+    ],
+    "root_cause": "An audio app benefits hugely from PWA install: full screen, no browser chrome, models cached for offline.",
+    "fix": [
+      "Add manifest.json with name, icons, start_url, display: 'standalone'",
+      "Register a service worker that caches the JS shell; let Transformers.js manage IndexedDB",
+      "Show an Add-to-Home-Screen prompt after a successful first transcription"
+    ],
+    "tags": ["pwa", "offline", "manifest", "best-practice", "audio"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://web.dev/learn/pwa"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "code_pattern",
+    "symptoms": [
+      "want to react to model load progress in React state",
+      "progress bar bound to React"
+    ],
+    "root_cause": "The worker's progress messages are async; useState + a useEffect listener mirrors them into React state.",
+    "fix": [
+      "const [progress, setProgress] = useState({ file: '', pct: 0 })",
+      "useEffect(() => { const h = (e) => e.data.type === 'progress' && setProgress({ file: e.data.file, pct: e.data.progress }); worker.addEventListener('message', h); return () => worker.removeEventListener('message', h) }, [])",
+      "Render <progress value={progress.pct} max={100} /> with the file name beside it"
+    ],
+    "tags": ["react", "progress", "code-pattern", "audio"],
+    "severity": "low",
+    "frequency": "common",
+    "related_docs": ["https://react.dev/reference/react/useEffect"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want zero-network audio app on Vercel",
+      "minimise external dependencies"
+    ],
+    "root_cause": "Once weights are cached and the JS shell is offline, the app needs no network to function. Make this explicit in the build.",
+    "fix": [
+      "Self-host ONNX Runtime Web wasm in /public/onnx",
+      "Self-host or mirror models to your origin or Vercel Blob",
+      "Add a service worker that serves the JS shell from cache-first"
+    ],
+    "tags": ["self-host", "offline-first", "vercel", "best-practice", "audio"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://web.dev/articles/offline-cookbook"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to release inference resources when user navigates away",
+      "memory leaks across page changes"
+    ],
+    "root_cause": "If the worker survives navigation but inference state grows, you can hit OOM after long sessions.",
+    "fix": [
+      "Add a 'reset' message that disposes pipelines and resets caches in the worker",
+      "Send it on visibilitychange to hidden after a timeout (e.g., 5 min idle)",
+      "Recreate pipeline on next user action"
+    ],
+    "tags": ["memory", "lifecycle", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "occasional",
+    "related_docs": ["https://huggingface.co/docs/transformers.js/api/pipelines"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to add accessibility for the transcription UI",
+      "screen reader compatibility"
+    ],
+    "root_cause": "Live regions inform screen readers when the transcript updates. Use aria-live='polite' and a separate visually-hidden region for completed text to avoid a flood.",
+    "fix": [
+      "<div role='log' aria-live='polite' aria-relevant='additions'>{transcript}</div>",
+      "Update transcript in larger chunks (e.g., per finalised utterance) rather than per token to reduce SR noise",
+      "Provide a transcript download for users who prefer reading offline"
+    ],
+    "tags": ["a11y", "aria-live", "screen-reader", "best-practice", "audio"],
+    "severity": "medium",
+    "frequency": "common",
+    "related_docs": ["https://www.w3.org/WAI/ARIA/apg/patterns/alert/"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "best_practice",
+    "symptoms": [
+      "want to support keyboard shortcuts for record/stop",
+      "power users expect spacebar to toggle"
+    ],
+    "root_cause": "Bind a single key (e.g., spacebar when not in a text input) to start/stop recording for accessibility and power-user efficiency.",
+    "fix": [
+      "Listen for keydown on document; check e.code === 'Space' && !inEditableContext",
+      "Prevent default to avoid scrolling the page",
+      "Show a hint in the UI: 'Press space to start/stop recording'"
+    ],
+    "tags": ["keyboard", "shortcut", "ux", "best-practice", "audio"],
+    "severity": "low",
+    "frequency": "occasional",
+    "related_docs": ["https://developer.mozilla.org/docs/Web/API/KeyboardEvent"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "config_issue",
+    "symptoms": [
+      "Vercel preview deploys load model fine but production fails",
+      "model 404 only in production environment"
+    ],
+    "root_cause": "Different environment variables between preview and production can change env.remoteHost or env.localModelPath at runtime, breaking the URL.",
+    "fix": [
+      "Audit Vercel env vars across Production/Preview/Development scopes",
+      "Make sure NEXT_PUBLIC_MODEL_HOST (if used) is set in all scopes",
+      "Pin a hardcoded remoteHost when behaviour differs unexpectedly to isolate the issue"
+    ],
+    "tags": ["vercel", "env-vars", "configuration", "audio"],
+    "severity": "high",
+    "frequency": "common",
+    "related_docs": ["https://vercel.com/docs/environment-variables"],
+    "version": "next@13+",
+    "stack": "transformers-js"
+  },
+  {
+    "type": "checklist",
+    "symptoms": [
+      "preflight before shipping audio app to Vercel",
+      "want a launch checklist"
+    ],
+    "root_cause": "Shipping a Transformers.js audio app on Vercel involves a recurring set of must-haves: SSR off, worker isolation, COOP/COEP, wasm path, model path, dtype + device strategy, mic UX, error states.",
+    "fix": [
+      "AudioInterface dynamic-imported with { ssr: false }",
+      "next.config.mjs sets webpack fallback for fs/path/crypto on the client",
+      "Headers (vercel.json or next.config.mjs) emit COOP same-origin and COEP require-corp",
+      "env.backends.onnx.wasm.wasmPaths set to a stable URL (CDN or /onnx/)",
+      "Picked + tested dtype + device combo across mobile, mid-range laptop, and capable desktop",
+      "Microphone permission UX handles allow / deny / prompt",
+      "Progress UX shown for first cold load",
+      "No @huggingface/transformers import in any app/api/* route or server-rendered file"
+    ],
+    "tags": ["checklist", "launch", "vercel", "audio"],
+    "severity": "medium",
+    "frequency": "very-common",
+    "related_docs": ["https://huggingface.co/docs/transformers.js"],
+    "version": "@huggingface/transformers@3+",
+    "stack": "transformers-js"
+  }
+]

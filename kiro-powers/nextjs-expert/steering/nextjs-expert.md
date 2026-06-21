@@ -123,6 +123,38 @@ Rules for the block:
 - Tell the user the candidate must be added to `knowledge/nextjs-vercel.json` by them, and that they must then run `npm run export:neon` to load it into Neon.
 - Never create, write to, or modify `knowledge/nextjs-vercel.json` yourself. The Gap Capture block is the only output; the user owns the edit.
 
+## Local Knowledge Capture
+
+When the Lookup Protocol declares a True Miss AND you subsequently locate a vetted answer (from official documentation, the web, or grounded general expertise), persist that finding to a workspace-local JSON file so the user can review and merge it into the canonical knowledge base later.
+
+Procedure (run after emitting the Gap Capture block, only when you have a complete answer):
+
+1. Resolve the path verbatim: `./.kiro/nextjs-expert-local-knowledge/nextjs-expert.json`.
+2. If the directory `./.kiro/nextjs-expert-local-knowledge/` does not exist, create it.
+3. If the file does not exist, initialise it with a JSON array containing only `[]`.
+4. Build a knowledge entry that matches the canonical schema used in `knowledge/nextjs-vercel.json`:
+   - `type` (one of: bug_fix | error | config_issue | code_pattern | best_practice | fix_snippet | performance_case | doc | recipe | diagnostic_step | root_cause | anti_pattern | architecture | convention | checklist | log_pattern)
+   - `symptoms` (non-empty string array)
+   - `root_cause` (string)
+   - `fix` (non-empty string array of concrete steps)
+   - `tags` (non-empty string array)
+   - `severity` (`low` | `medium` | `high`)
+   - `frequency` (`rare` | `occasional` | `common` | `very-common`)
+   - `related_docs` (string array of the source URLs you used)
+   - `version` (string or `null`)
+   - `stack` (literal `"nextjs-vercel"`)
+5. Append the new entry to the array. Preserve valid JSON: balanced brackets, a comma between entries, no trailing comma after the final entry.
+6. After saving, tell the user the path you wrote to and remind them this file is for review; the canonical source of truth remains `knowledge/nextjs-vercel.json` which they own.
+
+Rules:
+
+- Only write a Local Knowledge Capture entry after you have a complete, vetted answer with concrete `fix` steps. Do not write `<NEEDS USER INPUT>` placeholders to this file — those belong only in the Gap Capture chat block.
+- Always cite the sources in `related_docs`. If grounded general expertise was the only source, leave `related_docs` as `[]` and say so to the user.
+- Always append. Never delete or rewrite existing entries in this file.
+- The `stack` value MUST be the literal string `"nextjs-vercel"`.
+- The file must remain valid JSON after every append. If parsing fails after your edit, restore the previous content and report the failure to the user.
+- This local capture is in addition to, not a replacement for, the Gap Capture block in the chat response.
+
 ## Fallback Label
 
 The exact wording of the Fallback Label is the literal string `[ungrounded — general expertise]`. Use it verbatim — no translation, no paraphrase, no casing change, no whitespace change.

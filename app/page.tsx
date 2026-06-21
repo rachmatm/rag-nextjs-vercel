@@ -71,6 +71,11 @@ const STACK_INFO: Record<string, { label: string; blurb: string }> = {
     blurb:
       "On-premise Kubernetes with Node.js, CloudNativePG, BullMQ, KEDA, Cilium, Rook-Ceph, NATS JetStream, Vault, and the LGTM observability stack.",
   },
+  "transformers-js": {
+    label: "Transformers.js",
+    blurb:
+      "Hugging Face Transformers.js — browser-first ML on ONNX Runtime Web with WebGPU/WASM, Web Workers, IndexedDB caches, and Vercel-hosted audio apps (Whisper/MMS/TTS).",
+  },
 };
 
 const CONNECT_JSON = `{

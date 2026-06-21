@@ -149,6 +149,27 @@ Rules for the block:
 - Tell the user the candidate must be added to `knowledge/google-sheets.json` by them, and that they must then run `npm run export:neon` to load it into Neon.
 - Never create, write to, or modify `knowledge/google-sheets.json` yourself. The Gap Capture block is the only output; the user owns the edit.
 
+## Local Knowledge Capture
+
+When the Lookup Protocol terminates in a True Miss AND you subsequently locate a vetted answer (from official documentation, the web, or your general expertise) that resolves the user's question, capture that finding to a workspace-local JSON file so it can be reviewed and synced into the canonical knowledge base later. This is in addition to (not a replacement for) the Gap Capture chat block.
+
+Procedure:
+
+1. Compute the file path: `./.claude/google-sheets-expert-local-knowledge/google-sheets-expert.json` (relative to the workspace root).
+2. If the directory `./.claude/google-sheets-expert-local-knowledge/` does not exist, create it.
+3. If the JSON file does not exist, initialise it with an empty JSON array: `[]`.
+4. Build a knowledge entry matching the canonical schema used in `knowledge/google-sheets.json`:
+   - `type`, `symptoms[]`, `root_cause`, `fix[]`, `tags[]`, `severity` (one of `low` | `medium` | `high`), `frequency` (one of `rare` | `occasional` | `common` | `very-common`), `related_docs[]`, `version`, and `stack: "google-sheets"`.
+5. Append the new entry to the array. The result must remain valid JSON (balanced brackets, no trailing commas).
+6. Tell the user the entry was captured to `./.claude/google-sheets-expert-local-knowledge/google-sheets-expert.json` and remind them that the canonical source of truth is still `knowledge/google-sheets.json`, which they own and must update before running `npm run export:neon`.
+
+Rules:
+
+- Only write to the local capture file AFTER you have actually located a vetted answer. Never use `<NEEDS USER INPUT>` placeholders here — those belong only in the Gap Capture chat block.
+- Always append; never delete or rewrite existing entries in this file.
+- The file must remain valid JSON after every append.
+- Never write to `knowledge/google-sheets.json` directly — that file is owned by the user.
+
 ## Fallback Label
 
 The exact wording of the Fallback Label is the literal string `[ungrounded — general expertise]`. Use it verbatim — no translation, no paraphrase, no casing change, no whitespace change.

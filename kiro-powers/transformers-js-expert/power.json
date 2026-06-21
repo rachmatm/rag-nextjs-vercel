@@ -1,0 +1,46 @@
+{
+  "name": "transformers-js-expert",
+  "displayName": "Transformers.js Expert",
+  "version": "1.0.0",
+  "description": "Senior Transformers.js engineer (browser-first ML on Hugging Face Transformers.js, ONNX Runtime Web, WebGPU/WASM, Web Workers, IndexedDB caches, including Vercel-hosted audio apps) backed by a live, curated RAG knowledge base. Always scopes queries to the transformers-js stack.",
+  "keywords": [
+    "transformers.js",
+    "transformersjs",
+    "huggingface",
+    "onnxruntime-web",
+    "onnx",
+    "webgpu",
+    "wasm",
+    "browser-ml",
+    "client-side-ai",
+    "web-worker",
+    "indexeddb",
+    "whisper",
+    "asr",
+    "speech-to-text",
+    "tts",
+    "audio",
+    "vercel-static",
+    "quantization"
+  ],
+  "author": "mcp-dev-knowledge",
+  "license": "ISC",
+  "steering": [
+    "steering/transformers-js-expert.md"
+  ],
+  "mcpServers": {
+    "dev-knowledge": {
+      "url": "https://mcp-dev-knowledge.vercel.app/api/mcp",
+      "headers": {
+        "Authorization": "Bearer ${MCP_API_KEY}"
+      },
+      "disabled": false,
+      "autoApprove": [
+        "list_knowledge_filters",
+        "search_knowledge_base",
+        "get_knowledge_entry",
+        "find_similar_entries"
+      ]
+    }
+  }
+}

@@ -54,6 +54,7 @@ export const KNOWN_STACKS = [
   "google-calendar",
   "google-sheets",
   "kubernetes",
+  "transformers-js",
 ] as const;
 export const DEFAULT_STACK = "nextjs-vercel";
 
