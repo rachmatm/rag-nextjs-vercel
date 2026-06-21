@@ -3,8 +3,8 @@
 A curated, multi-stack RAG knowledge base for coding agents, shipped as:
 
 1. **MCP Server** (`app/`) — a [Model Context Protocol](https://modelcontextprotocol.io) server on Vercel serverless, queryable over Streamable HTTP by any MCP-compatible client (Cursor, Claude Code, Windsurf, Cline, Kiro, VS Code, …).
-2. **Kiro Powers** (`kiro-powers/`) — two installable Kiro extensions that wire up the MCP server and provide a KB-grounded expert persona.
-3. **Claude Skills** (`claude-skills/`) — two Claude Code skills that mirror the Kiro Powers for Claude Code users.
+2. **Kiro Powers** (`kiro-powers/`) — installable Kiro extensions that wire up the MCP server and provide a KB-grounded expert persona.
+3. **Claude Skills** (`claude-skills/`) — Claude Code skills that mirror the Kiro Powers for Claude Code users.
 4. **Raw JSON** (`knowledge/`) — the underlying dataset, one file per stack, plus `export-to-neon.mjs` to load them into Neon Postgres with `pgvector`.
 
 ---
@@ -22,21 +22,36 @@ mcp-dev-knowledge/
 │   └── db.ts                         # Neon client + all DB queries
 ├── knowledge/                        # Dataset — ONE JSON FILE PER STACK
 │   ├── nextjs-vercel.json
-│   └── react-native.json
+│   ├── react-native.json
+│   ├── google-oauth.json
+│   ├── google-calendar.json
+│   ├── google-sheets.json
+│   ├── kubernetes.json
+│   └── transformers-js.json
 ├── kiro-powers/                      # Kiro Power extensions
 │   ├── nextjs-expert/
 │   │   ├── POWER.md
 │   │   ├── power.json
 │   │   └── steering/nextjs-expert.md
-│   └── react-native-expert/
-│       ├── POWER.md
-│       ├── power.json
-│       └── steering/react-native-expert.md
+│   ├── react-native-expert/
+│   │   ├── POWER.md
+│   │   ├── power.json
+│   │   └── steering/react-native-expert.md
+│   ├── google-oauth-expert/
+│   ├── google-calendar-expert/
+│   ├── google-sheets-expert/
+│   ├── kubernetes-expert/
+│   └── transformers-js-expert/
 ├── claude-skills/                    # Claude Code skill extensions
 │   ├── nextjs-expert/
 │   │   └── SKILL.md
-│   └── react-native-expert/
-│       └── SKILL.md
+│   ├── react-native-expert/
+│   │   └── SKILL.md
+│   ├── google-oauth-expert/
+│   ├── google-calendar-expert/
+│   ├── google-sheets-expert/
+│   ├── kubernetes-expert/
+│   └── transformers-js-expert/
 ├── export-to-neon.mjs               # Loads knowledge/*.json into Neon + pgvector
 ├── next.config.mjs
 ├── vercel.json                       # Region (sin1) + 60s maxDuration
@@ -61,6 +76,11 @@ Knowledge is partitioned by **tech stack**. Stacks never mix — a search return
 |---------------|--------|
 | `nextjs-vercel` | Next.js (App Router) + Vercel — routing, server components, caching, Prisma/Neon, Redis, deployment |
 | `react-native` | React Native for web, Android, iOS — Expo/bare, Metro, navigation, native builds, EAS |
+| `google-oauth` | Google OAuth sign-in, scopes, token refresh, redirect URIs |
+| `google-calendar` | Google Calendar API events, webhooks, sync, recurring events |
+| `google-sheets` | Google Sheets API read/write, batch ops, Sheets-as-CMS |
+| `kubernetes` | On-premise Kubernetes, Node.js, CloudNativePG, KEDA, Cilium, Rook-Ceph, BullMQ, NATS, Vault, LGTM |
+| `transformers-js` | Hugging Face Transformers.js — browser-first ML on ONNX Runtime Web, WebGPU/WASM, Web Workers, IndexedDB caches, including Vercel-hosted audio apps (Whisper/MMS/TTS) |
 
 Adding a new stack is a **data-only change**: drop a `knowledge/<stack>.json` and re-run `npm run export:neon`.
 
@@ -115,12 +135,17 @@ For stdio-only clients, bridge with [`mcp-remote`](https://www.npmjs.com/package
 
 ## Kiro Powers
 
-Two installable Kiro extensions under `kiro-powers/`. Each power bundles a steering file that gives the agent a KB-grounded expert persona bound to one stack.
+Installable Kiro extensions under `kiro-powers/`. Each power bundles a steering file that gives the agent a KB-grounded expert persona bound to one stack.
 
 | Power | Stack | Description |
 |-------|-------|-------------|
 | `nextjs-expert` | `nextjs-vercel` | Senior Next.js (App Router) + Vercel engineer |
 | `react-native-expert` | `react-native` | Senior React Native engineer (Expo + bare, web/Android/iOS) |
+| `google-oauth-expert` | `google-oauth` | Google OAuth specialist — sign-in, scopes, token refresh, redirect URIs |
+| `google-calendar-expert` | `google-calendar` | Google Calendar API specialist — events, webhooks, sync, recurring |
+| `google-sheets-expert` | `google-sheets` | Google Sheets specialist — read/write, batch ops, Sheets-as-CMS |
+| `kubernetes-expert` | `kubernetes` | Senior Kubernetes engineer — clusters, storage, networking, autoscaling |
+| `transformers-js-expert` | `transformers-js` | Senior Transformers.js engineer — browser-first ML on ONNX Runtime Web, WebGPU/WASM, Web Workers, IndexedDB, Vercel audio apps |
 
 **Features:**
 - Auto-verifies MCP server reachability on first activation (Install_Verify_Protocol)
@@ -132,12 +157,17 @@ Two installable Kiro extensions under `kiro-powers/`. Each power bundles a steer
 
 ## Claude Skills
 
-Two Claude Code skills under `claude-skills/`. Each SKILL.md mirrors its corresponding Kiro Power — same persona, same MCP tools, same stack isolation — adapted for the Claude Code host.
+Claude Code skills under `claude-skills/`. Each SKILL.md mirrors its corresponding Kiro Power — same persona, same MCP tools, same stack isolation — adapted for the Claude Code host.
 
 | Skill | Stack | Description |
 |-------|-------|-------------|
 | `nextjs-expert` | `nextjs-vercel` | Senior Next.js (App Router) + Vercel engineer |
 | `react-native-expert` | `react-native` | Senior React Native engineer (Expo + bare, web/Android/iOS) |
+| `google-oauth-expert` | `google-oauth` | Google OAuth specialist |
+| `google-calendar-expert` | `google-calendar` | Google Calendar API specialist |
+| `google-sheets-expert` | `google-sheets` | Google Sheets specialist |
+| `kubernetes-expert` | `kubernetes` | Senior Kubernetes engineer |
+| `transformers-js-expert` | `transformers-js` | Senior Transformers.js engineer — browser ML, ONNX Runtime Web, audio on Vercel |
 
 **Install in Claude Code:**
 
