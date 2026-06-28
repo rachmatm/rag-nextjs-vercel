@@ -21,14 +21,23 @@ async function fetchMetalsPrice(currency: string): Promise<Record<string, unknow
   const url = `https://api.metals.dev/v1/latest?api_key=${apiKey}&currency=${currency}&unit=g`;
 
   try {
-    const res = await fetch(url, { next: { revalidate: 3600 } } as RequestInit);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+    const res = await fetch(url, { 
+      signal: controller.signal,
+      next: { revalidate: 3600 } 
+    } as RequestInit);
+
+    clearTimeout(timeout);
+
     if (!res.ok) {
       console.error(`[Metals API] Upstream returned ${res.status}`);
       return null;
     }
     return await res.json();
   } catch (error) {
-    console.error("[Metals API] Fetch error:", error);
+    console.error("[Metals API] Fetch error:", error instanceof Error ? error.message : String(error));
     return null;
   }
 }
@@ -40,21 +49,34 @@ async function getPricesWithCache(): Promise<{
   const goldCacheKey = "metals_gold_price";
   const usdCacheKey = "metals_usd_price";
 
-  // Try to get both from cache first
-  const [cachedGold, cachedUsd] = await Promise.all([
-    getCachedValue(goldCacheKey),
-    getCachedValue(usdCacheKey),
-  ]);
+  console.log("[v0] Starting getPricesWithCache");
 
-  if (cachedGold && cachedUsd) {
-    console.log("[Cache] Both prices hit - returning from cache");
-    return {
-      goldPrice: Number(cachedGold),
-      usdPrice: Number(cachedUsd),
-    };
+  // Try to get both from cache first (with timeout protection)
+  try {
+    const cachePromise = Promise.all([
+      getCachedValue(goldCacheKey),
+      getCachedValue(usdCacheKey),
+    ]);
+    
+    const cacheTimeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Cache timeout")), 3000)
+    );
+
+    const result = await Promise.race([cachePromise, cacheTimeout]);
+    const [cachedGold, cachedUsd] = result as [string | null, string | null];
+
+    if (cachedGold && cachedUsd) {
+      console.log("[Cache] Both prices hit - returning from cache");
+      return {
+        goldPrice: Number(cachedGold),
+        usdPrice: Number(cachedUsd),
+      };
+    }
+  } catch (error) {
+    console.log("[v0] Cache check timeout or failed:", error instanceof Error ? error.message : String(error));
   }
 
-  console.log("[Cache] Missing data - fetching from API");
+  console.log("[v0] Fetching from API");
 
   // Fetch once from API with IDR currency
   const apiData = await fetchMetalsPrice("IDR");
@@ -62,25 +84,30 @@ async function getPricesWithCache(): Promise<{
   if (!apiData) {
     console.error("[API] Failed to fetch prices");
     return {
-      goldPrice: cachedGold ? Number(cachedGold) : null,
-      usdPrice: cachedUsd ? Number(cachedUsd) : null,
+      goldPrice: null,
+      usdPrice: null,
     };
   }
 
-  // Extract both values from single API response
-  const goldPrice =
-    typeof apiData.gold === "number" ? apiData.gold : null;
-  const usdPrice = typeof apiData.usd === "number" ? apiData.usd : null;
+  console.log("[v0] Got API data");
 
-  // Cache both values independently
+  // Extract both values from single API response
+  // metals.dev returns: { metals: { gold: X }, currencies: { USD: Y } }
+  const goldPrice =
+    typeof (apiData as any).metals?.gold === "number" ? (apiData as any).metals.gold : null;
+  const usdPrice = typeof (apiData as any).currencies?.USD === "number" ? (apiData as any).currencies.USD : null;
+
+  // Cache both values independently (fire and forget)
   if (goldPrice !== null) {
-    await setCachedValue(goldCacheKey, goldPrice.toString(), CACHE_EXPIRATION);
-    console.log(`[Cache] Stored ${goldCacheKey}`);
+    setCachedValue(goldCacheKey, goldPrice.toString(), CACHE_EXPIRATION)
+      .then(() => console.log(`[Cache] Stored ${goldCacheKey}`))
+      .catch((err) => console.log("[v0] Cache store failed:", err));
   }
 
   if (usdPrice !== null) {
-    await setCachedValue(usdCacheKey, usdPrice.toString(), CACHE_EXPIRATION);
-    console.log(`[Cache] Stored ${usdCacheKey}`);
+    setCachedValue(usdCacheKey, usdPrice.toString(), CACHE_EXPIRATION)
+      .then(() => console.log(`[Cache] Stored ${usdCacheKey}`))
+      .catch((err) => console.log("[v0] Cache store failed:", err));
   }
 
   return { goldPrice, usdPrice };
@@ -93,6 +120,7 @@ export async function OPTIONS() {
 export async function GET() {
   try {
     // Fetch both prices in single API call (with caching)
+    // Prices: 1 gram gold in IDR, 1 USD in IDR
     const { goldPrice, usdPrice } = await getPricesWithCache();
 
     // Build response

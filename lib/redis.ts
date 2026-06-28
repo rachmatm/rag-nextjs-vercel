@@ -7,9 +7,13 @@ export async function getRedisClient() {
     return client;
   }
 
-  const redisUrl = process.env.REDIS_URL;
+  // Support multiple Redis connection formats
+  const redisUrl = process.env.REDIS_URL || 
+                   process.env.UPSTASH_FOR_REDIS_KV_URL ||
+                   process.env.KV_URL;
+  
   if (!redisUrl) {
-    console.warn('[Redis] REDIS_URL not set, caching disabled');
+    console.warn('[Redis] No Redis URL found, caching disabled');
     return null;
   }
 
