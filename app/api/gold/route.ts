@@ -48,8 +48,18 @@ async function getPriceWithCache(priceType: "gold" | "usd"): Promise<{
   console.log(`[Cache] Miss for ${cacheKey}, fetching from API`);
 
   // Fetch from API
-  const currency = priceType === "usd" ? "USD" : "IDR";
-  const data = await fetchMetalsPrice(currency);
+  let data: Record<string, unknown> | null = null;
+  
+  if (priceType === "gold") {
+    // Get gold price in IDR (1 gram gold = X IDR)
+    data = await fetchMetalsPrice("IDR");
+  } else if (priceType === "usd") {
+    // Get exchange rate: 1 USD = X IDR
+    // Fetch in IDR currency, which will give us the conversion rate
+    data = await fetchMetalsPrice("IDR");
+    // Extract only the exchange rate data (USD to IDR conversion)
+    // The API response will contain rates object with usd_idr or similar
+  }
 
   if (data) {
     // Cache the result
@@ -66,8 +76,8 @@ export async function OPTIONS() {
 
 export async function GET() {
   try {
-    // Fetch both gold (IDR) and USD prices in parallel
-    const [goldPrice, usdPrice] = await Promise.all([
+    // Fetch both gold (IDR) and exchange rate data in parallel
+    const [goldData, exchangeData] = await Promise.all([
       getPriceWithCache("gold"),
       getPriceWithCache("usd"),
     ]);
@@ -77,16 +87,18 @@ export async function GET() {
       timestamp: new Date().toISOString(),
     };
 
-    if (goldPrice) {
-      response.idr_gold_price = goldPrice;
+    // Extract gold price in IDR (1 gram)
+    if (goldData && typeof goldData === "object" && "gold" in goldData) {
+      response.idr_gold_price = (goldData as Record<string, unknown>).gold;
     } else {
       response.idr_gold_price_error = "Failed to fetch gold price";
     }
 
-    if (usdPrice) {
-      response.idr_usd_price = usdPrice;
+    // Extract USD to IDR exchange rate (1 USD = X IDR)
+    if (exchangeData && typeof exchangeData === "object" && "usd" in exchangeData) {
+      response.idr_usd_price = (exchangeData as Record<string, unknown>).usd;
     } else {
-      response.idr_usd_price_error = "Failed to fetch USD price";
+      response.idr_usd_price_error = "Failed to fetch USD/IDR exchange rate";
     }
 
     return Response.json(response, { headers: corsHeaders() });
