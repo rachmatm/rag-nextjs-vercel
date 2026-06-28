@@ -13,30 +13,20 @@ function corsHeaders() {
 
 async function fetchMetalsPrice(currency: string): Promise<Record<string, unknown> | null> {
   const apiKey = process.env.METALS_DEV_API_KEY;
-  console.log("[v0] apiKey exists:", !!apiKey);
-  console.log("[v0] apiKey length:", apiKey?.length || 0);
-  
   if (!apiKey) {
     console.error("[Metals API] METALS_DEV_API_KEY not set");
     return null;
   }
 
   const url = `https://api.metals.dev/v1/latest?api_key=${apiKey}&currency=${currency}&unit=g`;
-  console.log("[v0] Fetching from metals.dev with currency:", currency);
 
   try {
     const res = await fetch(url, { next: { revalidate: 3600 } } as RequestInit);
-    console.log("[v0] Metals API response status:", res.status);
-    
     if (!res.ok) {
       console.error(`[Metals API] Upstream returned ${res.status}`);
-      const text = await res.text();
-      console.error("[v0] Response body:", text);
       return null;
     }
-    const data = await res.json();
-    console.log("[v0] Metals API data:", JSON.stringify(data).substring(0, 200));
-    return data;
+    return await res.json();
   } catch (error) {
     console.error("[Metals API] Fetch error:", error);
     return null;
